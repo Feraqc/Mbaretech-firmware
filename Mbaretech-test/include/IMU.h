@@ -34,6 +34,8 @@ class IMU{
         mpu.dmpGetGravity(&gravity, &q);
         mpu.dmpGetLinearAccel(&aaReal, &aa, &gravity);
         mpu.dmpGetYawPitchRoll(ypr, &q, &gravity);
+
+        currentAngle = ypr[0]*(180/M_PI);
    
       }
     }
