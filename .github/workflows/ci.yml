@@ -21,7 +21,9 @@ jobs:
         pip install platformio
 
     - name: Build with PlatformIO
-      run: platformio run
+      run: |
+        cd Mbaretech2
+        platformio run
 
     - name: Check for build errors
       run: |
