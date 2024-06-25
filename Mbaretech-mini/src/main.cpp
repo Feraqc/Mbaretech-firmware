@@ -24,6 +24,12 @@ void IR5_ISR() { sensorReadings[4] = digitalRead(IR5); }
 void IR6_ISR() { sensorReadings[5] = digitalRead(IR6); }
 void IR7_ISR() { sensorReadings[6] = digitalRead(IR7); }
 
+WebServer server(80);  // Initialize the web server
+
+// Replace with your network credentials
+const char* ssid = "your_SSID";
+const char* password = "your_PASSWORD";
+
 void setup() {
     // Initialize Serial communication
     Serial.begin(115200);
@@ -90,6 +96,25 @@ void setup() {
     #endif  // RUN_IR_SENSOR_TEST
     #endif  // RUN_GYRO_TEST
     #endif  // RUN_DRIVER_TEST
+
+    #ifdef RUN_WIFI_SENSORS_TEST
+    WiFi.begin(ssid, password);
+    while (WiFi.status() != WL_CONNECTED) {
+        delay(500);
+        Serial.println("Connecting to WiFi...");
+    }
+    Serial.println("Connected to WiFi");
+
+    // Set up web server routes
+    server.on("/", handleRoot);
+    server.on("/sensors", handleSensors);
+
+    // Start the server
+    server.begin();
+    Serial.println("Web server started");
+
+    xTaskCreate(webServerTask, "WebServerTask", 2048, NULL, 1, NULL);
+    #endif
 }
 
 #ifndef RUN_GYRO_TEST
@@ -242,10 +267,42 @@ void loop() {} //Empty loop since I am using freertos
 #endif  // RUN_GYRO_TEST
 #endif  // RUN_DRIVER_TEST
 
-uint32_t usToDutyCycle(int pulseWidth){
+uint32_t usToDutyCycle(int pulseWidth) {
     uint32_t dutyCycle = ((pulseWidth * pow(2, resolution)) / period);
     return dutyCycle;
 }
+#ifdef RUN_WIFI_SENSORS_TEST
+
+void webServerTask(void *pvParameters) {
+    while (true) {
+        server.handleClient();
+        vTaskDelay(pdMS_TO_TICKS(10)); 
+    }
+}
+
+// Function to handle the root endpoint
+void handleRoot() {
+    server.send(200, "text/plain", "ESP32 Web Server is Running. Use /sensors to read sensor values.");
+}
+
+// Function to handle the sensors endpoint
+void handleSensors() {
+    String sensorData = "";
+    sensorData += "IR1: " + String(digitalRead(IR1)) + "\n";
+    sensorData += "IR2: " + String(digitalRead(IR2)) + "\n";
+    sensorData += "IR3: " + String(digitalRead(IR3)) + "\n";
+    sensorData += "IR4: " + String(digitalRead(IR4)) + "\n";
+    sensorData += "IR5: " + String(digitalRead(IR5)) + "\n";
+    sensorData += "IR6: " + String(digitalRead(IR6)) + "\n";
+    sensorData += "IR7: " + String(digitalRead(IR7)) + "\n";
+    server.send(200, "text/plain", sensorData);
+}
+
+#endif //
+
+
+
+
 
 
 

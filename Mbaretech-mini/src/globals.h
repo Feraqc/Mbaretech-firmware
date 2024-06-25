@@ -9,6 +9,9 @@
 
 #include "IMU.h"
 
+#include <WiFi.h>
+#include <WebServer.h>
+
 // CAMBIAR A LOS VERDADEROS PINES Y SENSORES !!!!!!
 
 #define IR1 40
@@ -29,8 +32,6 @@
 #define MOTOR_LEFT 32
 #define MOTOR_RIGHT 31
 
-
-
 // Define pulse width values in microseconds
 #define MIN_PULSE_WIDTH 1080
 #define MID_PULSE_WIDTH 1500
@@ -44,7 +45,6 @@ const int period = 20000; // 20 milliseconds (20000 microseconds).
 const int leftMotorChannel = 0;
 const int rightMotorChannel = 1;
 const int resolution = 16;  // 16-bit resolution
-
 
 enum Sensor { SIDE_LEFT, SHORT_LEFT, TOP_LEFT, TOP_MID, TOP_RIGHT, SIDE_RIGHT };
 
@@ -92,7 +92,12 @@ void mainTask(void *param);
 void handleState();
 void changeState(State newState);
 
-
 uint32_t usToDutyCycle(int pulseWidth);
+
+// Web server related functions
+extern WebServer server;
+extern void handleRoot();
+extern void handleSensors();
+extern void webServerTask(void *pvParameters);
 
 #endif // GLOBALS_H
