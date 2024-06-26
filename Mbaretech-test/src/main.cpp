@@ -7,6 +7,7 @@
 
 #define IR_TEST
 //#define IMU_TEST 
+#define ENCODER_TEST
 
 #define IR1 40
 #define IR2 39
@@ -16,7 +17,22 @@
 #define IR6 4
 #define IR7 5
 
+#define ENCODER_RIGHT 12
+#define ENCODER_LEFT 14
+
+#define KS 41
+
 volatile int sensorReadings[7];
+volatile unsigned int encoderRightCounter = 0;
+volatile unsigned int encoderLeftCounter = 0;
+volatile bool killSwitchCmd = false;
+
+QueueHandle_t sensorDataQueue;
+QueueHandle_t cmdQueue;
+TaskHandle_t sensorTaskHandle;
+
+IMU imu;
+void sensorTask(void *param);
 
 void IR1_ISR() { sensorReadings[0] = digitalRead(IR1); }
 void IR2_ISR() { sensorReadings[1] = digitalRead(IR2); }
@@ -26,13 +42,10 @@ void IR5_ISR() { sensorReadings[4] = digitalRead(IR5); }
 void IR6_ISR() { sensorReadings[5] = digitalRead(IR6); }
 void IR7_ISR() { sensorReadings[6] = digitalRead(IR7); }
 
+void encoderRightISR(){encoderRightCounter++;}
+void encoderLeftISR(){encoderLeftCounter++;}
 
-QueueHandle_t sensorDataQueue;
-QueueHandle_t cmdQueue;
-TaskHandle_t sensorTaskHandle;
-
-IMU imu;
-void sensorTask(void *param);
+void killSwithcISR(){killSwitchCmd = digitalRead(KS);}
 
 void setup() {
     // Initialize Serial communication
@@ -42,22 +55,31 @@ void setup() {
 
 
     #ifdef IR_TEST
-        pinMode(IR1, INPUT);
-        pinMode(IR2, INPUT);
-        pinMode(IR3, INPUT);
-        pinMode(IR4, INPUT);
-        pinMode(IR5, INPUT);
-        pinMode(IR6, INPUT);
-        pinMode(IR7, INPUT);
+    pinMode(IR1, INPUT);
+    pinMode(IR2, INPUT);
+    pinMode(IR3, INPUT);
+    pinMode(IR4, INPUT);
+    pinMode(IR5, INPUT);
+    pinMode(IR6, INPUT);
+    pinMode(IR7, INPUT);
 
-        attachInterrupt(digitalPinToInterrupt(IR1), IR1_ISR, CHANGE);
-        attachInterrupt(digitalPinToInterrupt(IR2), IR2_ISR, CHANGE);
-        attachInterrupt(digitalPinToInterrupt(IR3), IR3_ISR, CHANGE);
-        attachInterrupt(digitalPinToInterrupt(IR4), IR4_ISR, CHANGE);
-        attachInterrupt(digitalPinToInterrupt(IR5), IR5_ISR, CHANGE);
-        attachInterrupt(digitalPinToInterrupt(IR6), IR6_ISR, CHANGE);
-        attachInterrupt(digitalPinToInterrupt(IR7), IR7_ISR, CHANGE);
+    attachInterrupt(digitalPinToInterrupt(IR1), IR1_ISR, CHANGE);
+    attachInterrupt(digitalPinToInterrupt(IR2), IR2_ISR, CHANGE);
+    attachInterrupt(digitalPinToInterrupt(IR3), IR3_ISR, CHANGE);
+    attachInterrupt(digitalPinToInterrupt(IR4), IR4_ISR, CHANGE);
+    attachInterrupt(digitalPinToInterrupt(IR5), IR5_ISR, CHANGE);
+    attachInterrupt(digitalPinToInterrupt(IR6), IR6_ISR, CHANGE);
+    attachInterrupt(digitalPinToInterrupt(IR7), IR7_ISR, CHANGE);
     #endif
+    
+    pinMode(KS,INPUT);
+    attachInterrupt(digitalPinToInterrupt(KS), killSwithcISR, CHANGE);
+
+
+    pinMode(ENCODER_RIGHT,INPUT);
+    pinMode(ENCODER_LEFT,INPUT);
+    attachInterrupt(digitalPinToInterrupt(ENCODER_RIGHT), encoderRightISR, RISING);
+    attachInterrupt(digitalPinToInterrupt(ENCODER_LEFT), encoderLeftISR, RISING);
 
     // Create the queues
     sensorDataQueue = xQueueCreate(10, sizeof(float));
@@ -92,13 +114,20 @@ void loop() {
 
     xQueueReceive(sensorDataQueue, &currentAngle, portMAX_DELAY);
 
-    for(int i=0;i<6;i++){
-        Serial.print(sensorReadings[i]);
+    //Serial.println(killSwitchCmd);
+
+    if(killSwitchCmd){
+        for(int i=0;i<6;i++){
+            Serial.print(sensorReadings[i]);
+            Serial.print("\t");
+        }
+        Serial.print(currentAngle);
         Serial.print("\t");
+        Serial.print(encoderRightCounter);
+        Serial.print("\t");
+        Serial.print(encoderLeftCounter);
+        Serial.print("\n");
     }
-    Serial.print(currentAngle);
-    Serial.print("\t");
-    Serial.print("\n");
 
     // #ifdef IR_TEST
     // if (xQueueReceive(sensorDataQueue, &sensorReadings, portMAX_DELAY) == pdPASS) {
@@ -118,8 +147,8 @@ void loop() {
     vTaskDelay(10 / portTICK_PERIOD_MS);
 }
 
-void sensorTask(void *param) {
-    
+void sensorTask(void *param){
+
     int sensorReadings[7];
     float currentAngle;
     

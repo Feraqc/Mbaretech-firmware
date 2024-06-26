@@ -55,17 +55,17 @@ class IMU{
       
       devStatus = mpu.dmpInitialize();
       mpu.setFullScaleAccelRange(MPU6050_ACCEL_FS_8);
-      mpu.setXGyroOffset(-96);
-      mpu.setYGyroOffset(-107);
-      mpu.setZGyroOffset(-12);
-      mpu.setXAccelOffset(-5552);
-      mpu.setYAccelOffset(7886);
-      mpu.setZAccelOffset(11392);
+      mpu.setXGyroOffset(48);
+      mpu.setYGyroOffset(-59);
+      mpu.setZGyroOffset(-13);
+      mpu.setXAccelOffset(5940);
+      mpu.setYAccelOffset(5786);
+      mpu.setZAccelOffset(13490);
       
       if (devStatus == 0) {
-        mpu.CalibrateAccel(15);
-        mpu.CalibrateGyro(15);
-        mpu.PrintActiveOffsets();
+        // mpu.CalibrateAccel(15);
+        // mpu.CalibrateGyro(15);
+        // mpu.PrintActiveOffsets();
         mpu.setDMPEnabled(true);
         dmpReady = true;
         packetSize = mpu.dmpGetFIFOPacketSize();
