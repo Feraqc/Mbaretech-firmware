@@ -10,7 +10,7 @@
 #define MOTOR_LEFT 0
 #define MOTOR_RIGHT 37
 
-#define RESOLUTION 16
+#define RESOLUTION 14
 
 // LEDC (PWM) settings
 const int freq = 50;  // 50Hz frequency for RC control
@@ -103,3 +103,4 @@ void loop() {
 
     delay(2000); // Wait for 2 seconds
 }
+

@@ -17,12 +17,6 @@
 #define IR6 4
 #define IR7 5
 
-// CAMBIAR A LOS VERDADEROS PINES !!!!!!
-#define DIPA 37
-#define DIPB 36
-#define DIPC 35
-#define DIPD 34
-
 #define START_PIN 33
 
 // Hasta aca lo que hay que cambiar
