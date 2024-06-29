@@ -53,7 +53,6 @@ void setup() {
     pinMode(IR6, INPUT);
     pinMode(IR7, INPUT);
 
-
     attachInterrupt(digitalPinToInterrupt(IR1), IR1_ISR, CHANGE);
     attachInterrupt(digitalPinToInterrupt(IR2), IR2_ISR, CHANGE);
     attachInterrupt(digitalPinToInterrupt(IR3), IR3_ISR, CHANGE);
@@ -84,14 +83,20 @@ void setup() {
     // Create tasks conditionally
     #ifndef RUN_GYRO_TEST
     #ifndef RUN_IR_SENSOR_TEST
-    //xTaskCreate(imuTask, "imuTask", 4096, NULL, 1, &imuTaskHandle);
+    #ifndef LS_IR_SENSOR_TEST
+    xTaskCreate(imuTask, "imuTask", 4096, NULL, 1, &imuTaskHandle);
     //xTaskCreate(mainTask, "MainTask", 2048, NULL, 1, NULL);
     #endif  // RUN_IR_SENSOR_TEST
     #endif  // RUN_GYRO_TEST
+    #endif
 }
+
+
+
 
 #ifndef RUN_GYRO_TEST
 #ifndef RUN_IR_SENSOR_TEST
+#ifndef LS_IR_SENSOR_TEST
 
 void mainTask(void *pvParameters) {
     // Main loop of the FreeRTOS task
@@ -217,10 +222,14 @@ void imuTask(void *param) {
     }
 }
 
+void lineSensorTask(){
+    
+}
+void loop() {
 
-void loop() {    
 } 
 
 #endif  // RUN_IR_SENSOR_TEST
 #endif  // RUN_GYRO_TEST
+#endif
 

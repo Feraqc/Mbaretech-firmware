@@ -22,9 +22,7 @@ class IMU{
     float euler[3];
     float ypr[3];
     char data[6][20];
-
-    float currentAngle;
-
+    int currentAngle;
 
      void getData(){
       if(mpu.dmpGetCurrentFIFOPacket(fifoBuffer)){
@@ -32,10 +30,11 @@ class IMU{
        // mpu.dmpGetEuler(euler, &q);
        // mpu.dmpGetAccel(&aa, fifoBuffer);
         mpu.dmpGetGravity(&gravity, &q);
-        mpu.dmpGetLinearAccel(&aaReal, &aa, &gravity);
+        // mpu.dmpGetLinearAccel(&aaReal, &aa, &gravity);
         mpu.dmpGetYawPitchRoll(ypr, &q, &gravity);
+        // currentAngle = ypr[0]*(180/M_PI);
+        getYaw(&currentAngle,&q, &gravity);
 
-        currentAngle = ypr[0]*(180/M_PI);
    
       }
     }
@@ -63,9 +62,9 @@ class IMU{
       mpu.setZAccelOffset(13490);
       
       if (devStatus == 0) {
-        // mpu.CalibrateAccel(15);
-        // mpu.CalibrateGyro(15);
-        // mpu.PrintActiveOffsets();
+        mpu.CalibrateAccel(6);
+        mpu.CalibrateGyro(6);
+        mpu.PrintActiveOffsets();
         mpu.setDMPEnabled(true);
         dmpReady = true;
         packetSize = mpu.dmpGetFIFOPacketSize();
@@ -101,6 +100,11 @@ class IMU{
       }
       return false;
     }
+
+    void getYaw(int *data, Quaternion *q, VectorFloat *gravity){
+      *data = atan2(2*q -> x*q -> y - 2*q -> w*q -> z, 2*q -> w*q -> w + 2*q -> x*q -> x - 1)*(180/M_PI);;
+    }
+    
 
 };
 
