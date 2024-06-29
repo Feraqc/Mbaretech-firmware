@@ -11,33 +11,37 @@
 
 #include <WiFi.h>
 #include <WebServer.h>
+#include <WebSocketsServer.h>
+
+#include "motor.h"
 
 // CAMBIAR A LOS VERDADEROS PINES Y SENSORES !!!!!!
 
-#define IR1 40
-#define IR2 39
-#define IR3 38
-#define IR4 18
-#define IR5 17
-#define IR6 4
-#define IR7 5
+#define IR1 19
+#define IR2 21
+#define IR3 45
 
-#define DIPA 37
-#define DIPB 36
-#define DIPC 35
-#define DIPD 34
+#define DIPA 4
+#define DIPB 5
+#define DIPC 6
+#define DIPD 7
 
-#define START_PIN 33
+#define START_PIN 8
 
-#define MOTOR_LEFT 32
-#define MOTOR_RIGHT 31
+#define SCL_PIN 9
+#define SDA_PIN 10
+#define INT_PIN 11
 
-// Define pulse width values in microseconds
-#define MIN_PULSE_WIDTH 1080
-#define MID_PULSE_WIDTH 1500
-#define MAX_PULSE_WIDTH 1920
+#define LINE_LEFT 15
+#define LINE_RIGHT 17
 
-#define RESOLUTION 16
+//MOTOR A
+#define PWM_A 13
+#define CHANNEL_LEFT LEDC_CHANNEL_1
+
+//MOTORB
+#define PWM_B 12
+#define CHANNEL_RIGHT LEDC_CHANNEL_0
 
 // LEDC (PWM) settings
 const int freq = 50;  // 50Hz frequency for RC control
@@ -56,10 +60,9 @@ extern bool dipSwitchPin[4];  // de A a D
 void IR1_ISR();
 void IR2_ISR();
 void IR3_ISR();
-void IR4_ISR();
-void IR5_ISR();
-void IR6_ISR();
-void IR7_ISR();
+
+extern Motor leftMotor;
+extern Motor rightMotor;
 
 enum State {
     WAIT_ON_START,
@@ -92,12 +95,12 @@ void mainTask(void *param);
 void handleState();
 void changeState(State newState);
 
-uint32_t usToDutyCycle(int pulseWidth);
-
 // Web server related functions
 extern WebServer server;
+extern WebSocketsServer webSocket;
 extern void handleRoot();
-extern void handleSensors();
-extern void webServerTask(void *pvParameters);
+extern void sendSensorData();
+extern void webSocketTask(void *pvParameters);
+extern void webSocketEvent(uint8_t num, WStype_t type, uint8_t *payload, size_t length);
 
 #endif // GLOBALS_H

@@ -17,7 +17,39 @@
 #define IR6 4
 #define IR7 5
 
-#define START_PIN 33
+
+
+#define DIPA 42
+#define DIPB 2
+#define DIPC 1
+#define DIPD 44
+
+#define START_PIN 41
+
+#define SDA_PIN 15
+#define SCL_PIN 16
+
+#define HALL_PIN 43
+
+#define PWM_A 48   
+#define PWM_B 35
+
+#define PIN_A0 0
+#define PIN_A1 45
+
+#define PIN_B0 36 
+#define PIN_B1 37
+
+
+#define ENCODER_LEFT 14
+#define ENCODER_RIGHT 12
+
+#define LINE_FRONT_LEFT 3
+#define LINE_FRONT_RIGHT 8
+#define LINE_BACK_LEFT 19
+#define LINE_BACK_RIGHT 20
+
+
 
 // Hasta aca lo que hay que cambiar
 
