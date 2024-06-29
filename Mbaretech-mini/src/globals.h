@@ -13,36 +13,35 @@
 #include <WebServer.h>
 #include <WebSocketsServer.h>
 
+#include "motor.h"
+
 // CAMBIAR A LOS VERDADEROS PINES Y SENSORES !!!!!!
 
 #define IR1 19
-#define IR2 18
+#define IR2 21
 #define IR3 45
-
 
 #define DIPA 4
 #define DIPB 5
 #define DIPC 6
 #define DIPD 7
 
-#define START_PIN 12
+#define START_PIN 8
 
 #define SCL_PIN 9
-#define SDA_PIN 16
-#define INT_PIN 17
+#define SDA_PIN 10
+#define INT_PIN 11
 
-#define MOTOR_LEFT 19
-#define MOTOR_RIGHT 18
+#define LINE_LEFT 15
+#define LINE_RIGHT 17
 
-#define LINE_LEFT 8
-#define LINE_RIGHT 10
+//MOTOR A
+#define PWM_A 13
+#define CHANNEL_LEFT LEDC_CHANNEL_1
 
-// Define pulse width values in microseconds
-#define MIN_PULSE_WIDTH 1080
-#define MID_PULSE_WIDTH 1500
-#define MAX_PULSE_WIDTH 1920
-
-#define RESOLUTION 16
+//MOTORB
+#define PWM_B 12
+#define CHANNEL_RIGHT LEDC_CHANNEL_0
 
 // LEDC (PWM) settings
 const int freq = 50;  // 50Hz frequency for RC control
@@ -61,6 +60,9 @@ extern bool dipSwitchPin[4];  // de A a D
 void IR1_ISR();
 void IR2_ISR();
 void IR3_ISR();
+
+extern Motor leftMotor;
+extern Motor rightMotor;
 
 enum State {
     WAIT_ON_START,
@@ -92,8 +94,6 @@ void imuTask(void *param);
 void mainTask(void *param);
 void handleState();
 void changeState(State newState);
-
-uint32_t usToDutyCycle(int pulseWidth);
 
 // Web server related functions
 extern WebServer server;

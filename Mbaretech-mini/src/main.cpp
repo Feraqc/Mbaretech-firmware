@@ -1,9 +1,13 @@
 #include "globals.h"  // Include the header file
+//#include "motor.h"
 
 // Define the shared variables
 volatile bool sensorReadings[7];
 volatile bool startSignal = false; // Creo que debe ser volatile si le trato con interrupt
 bool dipSwitchPin[4];  // de A a D
+
+Motor leftMotor(PWM_A,CHANNEL_LEFT);
+Motor rightMotor(PWM_B,CHANNEL_RIGHT);
 
 volatile State currentState = WAIT_ON_START;
 
@@ -49,19 +53,8 @@ void setup() {
     pinMode(DIPD, INPUT);
 
     // Motors
-    pinMode(MOTOR_LEFT, OUTPUT);
-    pinMode(MOTOR_RIGHT, OUTPUT);
-
-    // Configure LEDC PWM functionalities for both motors
-    ledcSetup(leftMotorChannel, freq, resolution);
-    ledcSetup(rightMotorChannel, freq, resolution);
-    ledcAttachPin(MOTOR_LEFT, leftMotorChannel);
-    ledcAttachPin(MOTOR_RIGHT, rightMotorChannel);
-
-    // Start motors at 0
-    ledcWrite(leftMotorChannel, usToDutyCycle(MID_PULSE_WIDTH));
-    ledcWrite(rightMotorChannel, usToDutyCycle(MID_PULSE_WIDTH));
-    // Ojo que tengo entendido que esto calienta el driver igual, osea no dejar prendido al pedo
+    rightMotor.begin();
+    leftMotor.begin();
 
     // Create the queues
     imuDataQueue = xQueueCreate(10, sizeof(float));  // tamanho arbitrario
@@ -331,11 +324,6 @@ void sendSensorData() {
 }
 
 #endif // RUN_WIFI_SENSORS_TEST
-
-uint32_t usToDutyCycle(int pulseWidth) {
-    uint32_t dutyCycle = ((pulseWidth * pow(2, resolution)) / period);
-    return dutyCycle;
-}
 
 
 
