@@ -1,9 +1,16 @@
 #include "globals.h"  // Include the header file
+#include "motor.h"
+
+#define encoderLeft 12
+#define encoderRight 14
 
 // Define the shared variables
 volatile bool sensorReadings[7];
 volatile bool startSignal = false; // Creo que debe ser volatile si le trato con interrupt
 bool dipSwitchPin[4];  // de A a D
+
+Motor leftMotor(pinPwmA,pinA0,pinA1,pwmChannelLeft);
+Motor rightMotor(pinPwmB,pinB0,pinB1,pwmChannelRight);
 
 volatile State currentState = WAIT_ON_START;
 
@@ -13,22 +20,30 @@ QueueHandle_t cmdQueue;
 TaskHandle_t imuTaskHandle;
 
 IMU imu;
-
+ 
 int desiredAngle;
 
-void IR1_ISR() { sensorReadings[0] = digitalRead(IR1); }
-void IR2_ISR() { sensorReadings[1] = digitalRead(IR2); }
-void IR3_ISR() { sensorReadings[2] = digitalRead(IR3); }
-void IR4_ISR() { sensorReadings[3] = digitalRead(IR4); }
-void IR5_ISR() { sensorReadings[4] = digitalRead(IR5); }
-void IR6_ISR() { sensorReadings[5] = digitalRead(IR6); }
-void IR7_ISR() { sensorReadings[6] = digitalRead(IR7); }
+unsigned long encoderLeftCounter = 0;
+unsigned long encoderRightCounter = 0;
+
+void  IRAM_ATTR IR1_ISR() { sensorReadings[0] = digitalRead(IR1); }
+void  IRAM_ATTR IR2_ISR() { sensorReadings[1] = digitalRead(IR2); }
+void  IRAM_ATTR IR3_ISR() { sensorReadings[2] = digitalRead(IR3); }
+void  IRAM_ATTR IR4_ISR() { sensorReadings[3] = digitalRead(IR4); }
+void  IRAM_ATTR IR5_ISR() { sensorReadings[4] = digitalRead(IR5); }
+void  IRAM_ATTR IR6_ISR() { sensorReadings[5] = digitalRead(IR6); }
+void  IRAM_ATTR IR7_ISR() { sensorReadings[6] = digitalRead(IR7); }
+
+void  IRAM_ATTR encoderLeftISR(){encoderLeftCounter++;}
+void  IRAM_ATTR encoderRightISR(){encoderRightCounter++;}
 
 void setup() {
     // Initialize Serial communication
     Serial.begin(115200);
-
     imu.begin();
+    
+    rightMotor.begin();
+    leftMotor.begin();
 
     pinMode(IR1, INPUT);
     pinMode(IR2, INPUT);
@@ -37,6 +52,7 @@ void setup() {
     pinMode(IR5, INPUT);
     pinMode(IR6, INPUT);
     pinMode(IR7, INPUT);
+
 
     attachInterrupt(digitalPinToInterrupt(IR1), IR1_ISR, CHANGE);
     attachInterrupt(digitalPinToInterrupt(IR2), IR2_ISR, CHANGE);
@@ -47,10 +63,10 @@ void setup() {
     attachInterrupt(digitalPinToInterrupt(IR7), IR7_ISR, CHANGE);
 
     pinMode(START_PIN, INPUT);
-    pinMode(DIPA, INPUT);
-    pinMode(DIPB, INPUT);
-    pinMode(DIPC, INPUT);
-    pinMode(DIPD, INPUT);
+    pinMode(encoderLeft, INPUT);
+    pinMode(encoderRight, INPUT);
+    attachInterrupt(digitalPinToInterrupt(encoderLeft), encoderLeftISR, RISING);
+    attachInterrupt(digitalPinToInterrupt(encoderRight), encoderRightISR, RISING);
 
     // Create the queues
     imuDataQueue = xQueueCreate(10, sizeof(float));  // tamanho arbitrario
@@ -68,8 +84,8 @@ void setup() {
     // Create tasks conditionally
     #ifndef RUN_GYRO_TEST
     #ifndef RUN_IR_SENSOR_TEST
-    xTaskCreate(imuTask, "imuTask", 4096, NULL, 1, &imuTaskHandle);
-    xTaskCreate(mainTask, "MainTask", 2048, NULL, 1, NULL);
+    //xTaskCreate(imuTask, "imuTask", 4096, NULL, 1, &imuTaskHandle);
+    //xTaskCreate(mainTask, "MainTask", 2048, NULL, 1, NULL);
     #endif  // RUN_IR_SENSOR_TEST
     #endif  // RUN_GYRO_TEST
 }
@@ -85,7 +101,7 @@ void mainTask(void *pvParameters) {
     }
 }
 
-void handleState() {
+void handleState() {    
     switch (currentState) {
             // TODO:
             // INITIAL_MOVEMENT
@@ -97,19 +113,6 @@ void handleState() {
             // BOUND_MOVE, ---> Todavia no escribi el caso hay que hablar como
             // manejar DEFAULT_ACTION_STATE
         case WAIT_ON_START:
-            Serial.println("State: WAIT_ON_START");
-            if (digitalRead(START_PIN)) {
-                if (digitalRead(DIPA)) {  // Se puede cambiar a otro dip segun
-                                          // necesitemos para estrategia
-                    changeState(INITIAL_MOVEMENT);
-                }
-                else {
-                    changeState(MID_SENSOR_CHECK);
-                }
-            }
-            else {
-                // TODO: Motor OFF
-            }
             break;
 
         case INITIAL_MOVEMENT:
@@ -205,19 +208,18 @@ void changeState(State newState) { currentState = newState; }
 
 void imuTask(void *param) {
     float currentAngle;
-
     while (true) {
         // #ifdef IMU_TEST
         imu.getData();
         currentAngle = imu.currentAngle;
-
         xQueueSend(imuDataQueue, &currentAngle, portMAX_DELAY);
-
         vTaskDelay(10 / portTICK_PERIOD_MS);
     }
 }
 
-void loop() {} //Empty loop since I am using freertos
+
+void loop() {    
+} 
 
 #endif  // RUN_IR_SENSOR_TEST
 #endif  // RUN_GYRO_TEST

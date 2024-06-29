@@ -35,7 +35,7 @@ void setup() {
     // Initialize Serial communication
     Serial.begin(115200);
 
-    imu.begin();
+    //imu.begin();
     // IR sensors
     pinMode(IR1, INPUT);
     pinMode(IR2, INPUT);
