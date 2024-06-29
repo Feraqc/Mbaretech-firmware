@@ -19,10 +19,6 @@ int desiredAngle;
 void IR1_ISR() { sensorReadings[0] = digitalRead(IR1); }
 void IR2_ISR() { sensorReadings[1] = digitalRead(IR2); }
 void IR3_ISR() { sensorReadings[2] = digitalRead(IR3); }
-void IR4_ISR() { sensorReadings[3] = digitalRead(IR4); }
-void IR5_ISR() { sensorReadings[4] = digitalRead(IR5); }
-void IR6_ISR() { sensorReadings[5] = digitalRead(IR6); }
-void IR7_ISR() { sensorReadings[6] = digitalRead(IR7); }
 
 WebServer server(80);  // Initialize the web server
 WebSocketsServer webSocket = WebSocketsServer(81); // Initialize the WebSocket server on port 81
@@ -40,18 +36,10 @@ void setup() {
     pinMode(IR1, INPUT);
     pinMode(IR2, INPUT);
     pinMode(IR3, INPUT);
-    pinMode(IR4, INPUT);
-    pinMode(IR5, INPUT);
-    pinMode(IR6, INPUT);
-    pinMode(IR7, INPUT);
 
     attachInterrupt(digitalPinToInterrupt(IR1), IR1_ISR, CHANGE);
     attachInterrupt(digitalPinToInterrupt(IR2), IR2_ISR, CHANGE);
     attachInterrupt(digitalPinToInterrupt(IR3), IR3_ISR, CHANGE);
-    attachInterrupt(digitalPinToInterrupt(IR4), IR4_ISR, CHANGE);
-    attachInterrupt(digitalPinToInterrupt(IR5), IR5_ISR, CHANGE);
-    attachInterrupt(digitalPinToInterrupt(IR6), IR6_ISR, CHANGE);
-    attachInterrupt(digitalPinToInterrupt(IR7), IR7_ISR, CHANGE);
 
     // Start pins
     pinMode(START_PIN, INPUT);

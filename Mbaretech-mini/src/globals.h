@@ -61,10 +61,6 @@ extern bool dipSwitchPin[4];  // de A a D
 void IR1_ISR();
 void IR2_ISR();
 void IR3_ISR();
-void IR4_ISR();
-void IR5_ISR();
-void IR6_ISR();
-void IR7_ISR();
 
 enum State {
     WAIT_ON_START,
