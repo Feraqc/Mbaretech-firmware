@@ -18,7 +18,7 @@
 #define IR7 5
 
 
-// CAMBIAR A LOS VERDADEROS PINES !!!!!!
+
 #define DIPA 42
 #define DIPB 2
 #define DIPC 1
@@ -31,14 +31,14 @@
 
 #define HALL_PIN 43
 
-#define MOTOR_LEFT 0
-#define MOTOR_RIGHT 37
+#define PWM_A 48   
+#define PWM_B 35
 
-#define PIN_A0 45
-#define PIN_A1 48
+#define PIN_A0 0
+#define PIN_A1 45
 
 #define PIN_B0 36 
-#define PIN_B1 35
+#define PIN_B1 37
 
 
 #define ENCODER_LEFT 14
