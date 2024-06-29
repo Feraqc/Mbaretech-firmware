@@ -6,17 +6,18 @@
 
 
 #define FREQUENCY 40000
+
 //MOTOR A
-#define pinPwmA 48
-#define pinA0 0
-#define pinA1 45
-#define pwmChannelLeft LEDC_CHANNEL_1
+#define PWM_A 48
+#define PIN_A0 0
+#define PIN_A1 45
+#define CHANNEL_LEFT LEDC_CHANNEL_1
 
 //MOTORB
-#define pinPwmB 35
-#define pinB0 36
-#define pinB1 37
-#define pwmChannelRight LEDC_CHANNEL_0
+#define PWM_B 35
+#define PIN_B0 36
+#define PIN_B1 37
+#define CHANNEL_RIGHT LEDC_CHANNEL_0
 
 class Motor{
     public:

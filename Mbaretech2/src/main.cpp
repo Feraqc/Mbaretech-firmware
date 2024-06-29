@@ -1,5 +1,4 @@
 #include "globals.h"  // Include the header file
-#include "motor.h"
 
 #define encoderLeft 12
 #define encoderRight 14
@@ -9,8 +8,8 @@ volatile bool sensorReadings[7];
 volatile bool startSignal = false; // Creo que debe ser volatile si le trato con interrupt
 bool dipSwitchPin[4];  // de A a D
 
-Motor leftMotor(pinPwmA,pinA0,pinA1,pwmChannelLeft);
-Motor rightMotor(pinPwmB,pinB0,pinB1,pwmChannelRight);
+Motor leftMotor(PWM_A,PIN_A0,PIN_A1,CHANNEL_LEFT);
+Motor rightMotor(PWM_B,PIN_B0,PIN_B1,CHANNEL_RIGHT);
 
 volatile State currentState = WAIT_ON_START;
 
@@ -53,6 +52,7 @@ void setup() {
     Serial.begin(115200);
     imu.begin();
     
+    // Motors
     rightMotor.begin();
     leftMotor.begin();
 
@@ -96,12 +96,14 @@ void setup() {
     #ifndef RUN_IR_SENSOR_TEST
     #ifndef RUN_LS_IR_SENSOR_TEST
     #ifndef RUN_WIFI_SENSORS_TEST
+    #ifndef RUN_DRIVER_TEST
     xTaskCreate(imuTask, "imuTask", 4096, NULL, 1, &imuTaskHandle);
     xTaskCreate(mainTask, "MainTask", 2048, NULL, 1, NULL);
     #endif  // RUN_IR_SENSOR_TEST
     #endif  // RUN_GYRO_TEST
     #endif  // RUN_LS_IR_SENSOR_TEST
     #endif  // RUN_WIFI_SENSORS_TEST
+    #endif  // RUN_DRIVER_TEST
 
     #ifdef RUN_WIFI_SENSORS_TEST
     WiFi.begin(ssid, password);
@@ -133,6 +135,7 @@ void setup() {
 #ifndef RUN_IR_SENSOR_TEST
 #ifndef RUN_LS_IR_SENSOR_TEST
 #ifndef RUN_WIFI_SENSORS_TEST
+#ifndef RUN_DRIVER_TEST
 
 void mainTask(void *pvParameters) {
     // Main loop of the FreeRTOS task
@@ -269,6 +272,7 @@ void loop() {
 #endif  // RUN_GYRO_TEST
 #endif  // RUN_LS_IR_SENSOR_TEST
 #endif  // RUN_WIFI_SENSORS_TEST
+#endif  // RUN_DRIVER_TEST
 
 #ifdef RUN_WIFI_SENSORS_TEST
 
@@ -295,7 +299,7 @@ void webSocketTask(void *pvParameters) {
 // Function to handle the sensors endpoint
 void sendSensorData() {
     String sensorData = "";
-    for (int i = 0; i < 3; i++) {
+    for (int i = 0; i < 7; i++) {
         sensorData += "IR" + String(i + 1) + ": " + String(sensorReadings[i]) + "\t";
     }
     sensorData += "\t";
