@@ -25,10 +25,11 @@ void IR6_ISR() { sensorReadings[5] = digitalRead(IR6); }
 void IR7_ISR() { sensorReadings[6] = digitalRead(IR7); }
 
 WebServer server(80);  // Initialize the web server
+WebSocketsServer webSocket = WebSocketsServer(81); // Initialize the WebSocket server on port 81
 
 // Replace with your network credentials
-const char* ssid = "your_SSID";
-const char* password = "your_PASSWORD";
+const char* ssid = "Pixel";     // Replace with your WiFi network name
+const char* password = "guana123"; // Replace with your WiFi password
 
 void setup() {
     // Initialize Serial communication
@@ -107,13 +108,17 @@ void setup() {
 
     // Set up web server routes
     server.on("/", handleRoot);
-    server.on("/sensors", handleSensors);
 
     // Start the server
     server.begin();
     Serial.println("Web server started");
 
-    xTaskCreate(webServerTask, "WebServerTask", 2048, NULL, 1, NULL);
+    // Initialize WebSocket server
+    webSocket.begin();
+    webSocket.onEvent(webSocketEvent);
+    Serial.println("WebSocket server started");
+
+    xTaskCreate(webSocketTask, "WebSocketTask", 2048, NULL, 1, NULL);
     #endif
 }
 
@@ -267,10 +272,6 @@ void loop() {} //Empty loop since I am using freertos
 #endif  // RUN_GYRO_TEST
 #endif  // RUN_DRIVER_TEST
 
-uint32_t usToDutyCycle(int pulseWidth) {
-    uint32_t dutyCycle = ((pulseWidth * pow(2, resolution)) / period);
-    return dutyCycle;
-}
 #ifdef RUN_WIFI_SENSORS_TEST
 
 void webServerTask(void *pvParameters) {
@@ -282,23 +283,71 @@ void webServerTask(void *pvParameters) {
 
 // Function to handle the root endpoint
 void handleRoot() {
-    server.send(200, "text/plain", "ESP32 Web Server is Running. Use /sensors to read sensor values.");
+    server.send(200, "text/html", "<html><head><script>"
+        "var ws = new WebSocket('ws://' + location.hostname + ':81');"
+        "ws.onmessage = function(event) {"
+        "document.getElementById('sensorData').innerHTML = event.data;"
+        "};"
+        "</script></head><body>"
+        "<h1>Sensor Data</h1>"
+        "<div id='sensorData'>Waiting for data...</div>"
+        "</body></html>");
+}
+
+void webSocketEvent(uint8_t num, WStype_t type, uint8_t *payload, size_t length) {
+    switch (type) {
+        case WStype_DISCONNECTED:
+            Serial.printf("WebSocket %u disconnected\n", num);
+            break;
+        case WStype_CONNECTED: {
+            IPAddress ip = webSocket.remoteIP(num);
+            Serial.printf("WebSocket %u connected from %s\n", num, ip.toString().c_str());
+            break;
+        }
+        case WStype_TEXT:
+            Serial.printf("WebSocket %u received text: %s\n", num, payload);
+            // You can handle incoming messages here
+            break;
+        case WStype_BIN:
+            Serial.printf("WebSocket %u received binary data\n", num);
+            break;
+        case WStype_PING:
+            Serial.printf("WebSocket %u received ping\n", num);
+            break;
+        case WStype_PONG:
+            Serial.printf("WebSocket %u received pong\n", num);
+            break;
+    }
+}
+
+void webSocketTask(void *pvParameters) {
+    while (true) {
+        webSocket.loop();
+        sendSensorData();
+        vTaskDelay(pdMS_TO_TICKS(500)); // Send data every second
+    }
 }
 
 // Function to handle the sensors endpoint
-void handleSensors() {
+void sendSensorData() {
     String sensorData = "";
-    sensorData += "IR1: " + String(digitalRead(IR1)) + "\n";
-    sensorData += "IR2: " + String(digitalRead(IR2)) + "\n";
-    sensorData += "IR3: " + String(digitalRead(IR3)) + "\n";
-    sensorData += "IR4: " + String(digitalRead(IR4)) + "\n";
-    sensorData += "IR5: " + String(digitalRead(IR5)) + "\n";
-    sensorData += "IR6: " + String(digitalRead(IR6)) + "\n";
-    sensorData += "IR7: " + String(digitalRead(IR7)) + "\n";
-    server.send(200, "text/plain", sensorData);
+    sensorData += "IR1: " + String(sensorReadings[0]) + "\t";
+    sensorData += "IR2: " + String(sensorReadings[1]) + "\t";
+    sensorData += "IR3: " + String(sensorReadings[2]) + "\t";
+    sensorData += "IR4: " + String(sensorReadings[3]) + "\t";
+    sensorData += "IR5: " + String(sensorReadings[4]) + "\t";
+    sensorData += "IR6: " + String(sensorReadings[5]) + "\t";
+    sensorData += "IR7: " + String(sensorReadings[6]) + "\n";
+
+    webSocket.broadcastTXT(sensorData);
 }
 
-#endif //
+#endif // RUN_WIFI_SENSORS_TEST
+
+uint32_t usToDutyCycle(int pulseWidth) {
+    uint32_t dutyCycle = ((pulseWidth * pow(2, resolution)) / period);
+    return dutyCycle;
+}
 
 
 
