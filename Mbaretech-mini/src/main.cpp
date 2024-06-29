@@ -16,7 +16,7 @@ QueueHandle_t cmdQueue;
 
 TaskHandle_t imuTaskHandle;
 
-IMU imu;
+//IMU imu;
 
 int desiredAngle;
 
@@ -24,8 +24,11 @@ void IR1_ISR() { sensorReadings[0] = digitalRead(IR1); }
 void IR2_ISR() { sensorReadings[1] = digitalRead(IR2); }
 void IR3_ISR() { sensorReadings[2] = digitalRead(IR3); }
 
-WebServer server(80);  // Initialize the web server
-WebSocketsServer webSocket = WebSocketsServer(81); // Initialize the WebSocket server on port 81
+// Create AsyncWebServer instance on port 80
+AsyncWebServer server(80);
+
+// Create a WebSocket instance on port 81
+AsyncWebSocket ws("/ws");
 
 // Replace with your network credentials
 const char* ssid = "Pixel";     // Replace with your WiFi network name
@@ -73,31 +76,32 @@ void setup() {
     #ifndef RUN_GYRO_TEST
     #ifndef RUN_IR_SENSOR_TEST
     #ifndef RUN_DRIVER_TEST
+    #ifndef RUN_WIFI_SENSORS_TEST
     xTaskCreate(imuTask, "imuTask", 4096, NULL, 1, &imuTaskHandle);
     xTaskCreate(mainTask, "MainTask", 2048, NULL, 1, NULL);
     #endif  // RUN_IR_SENSOR_TEST
     #endif  // RUN_GYRO_TEST
     #endif  // RUN_DRIVER_TEST
+    #endif  // RUN_WIFI_SENSORS_TEST
 
     #ifdef RUN_WIFI_SENSORS_TEST
     WiFi.begin(ssid, password);
     while (WiFi.status() != WL_CONNECTED) {
         delay(500);
         Serial.println("Connecting to WiFi...");
+        Serial.println(WiFi.status());
     }
     Serial.println("Connected to WiFi");
 
-    // Set up web server routes
-    server.on("/", handleRoot);
+    // Setup WebSocket server
+    ws.onEvent(onEvent);
+    server.addHandler(&ws);
 
-    // Start the server
+    // Start server
     server.begin();
-    Serial.println("Web server started");
-
-    // Initialize WebSocket server
-    webSocket.begin();
-    webSocket.onEvent(webSocketEvent);
     Serial.println("WebSocket server started");
+    Serial.println("IP address: ");
+    Serial.println(WiFi.localIP());
 
     xTaskCreate(webSocketTask, "WebSocketTask", 2048, NULL, 1, NULL);
     #endif
@@ -106,6 +110,7 @@ void setup() {
 #ifndef RUN_GYRO_TEST
 #ifndef RUN_IR_SENSOR_TEST
 #ifndef RUN_DRIVER_TEST
+#ifndef RUN_WIFI_SENSORS_TEST
 
 void mainTask(void *pvParameters) {
     // Main loop of the FreeRTOS task
@@ -237,6 +242,7 @@ void imuTask(void *param) {
     float currentAngle;
 
     while (true) {
+        /*
         // #ifdef IMU_TEST
         imu.getData();
         currentAngle = imu.currentAngle;
@@ -244,6 +250,7 @@ void imuTask(void *param) {
         xQueueSend(imuDataQueue, &currentAngle, portMAX_DELAY);
 
         vTaskDelay(10 / portTICK_PERIOD_MS);
+        */
     }
 }
 
@@ -252,76 +259,77 @@ void loop() {} //Empty loop since I am using freertos
 #endif  // RUN_IR_SENSOR_TEST
 #endif  // RUN_GYRO_TEST
 #endif  // RUN_DRIVER_TEST
+#endif  // RUN_WIFI_SENSORS_TEST 
 
 #ifdef RUN_WIFI_SENSORS_TEST
 
-void webServerTask(void *pvParameters) {
-    while (true) {
-        server.handleClient();
-        vTaskDelay(pdMS_TO_TICKS(10)); 
-    }
-}
+// HTML content to serve
+const char* htmlPage = R"rawliteral(
+<!DOCTYPE html>
+<html>
+<head>
+    <title>WebSocket Client</title>
+</head>
+<body>
+    <h1>WebSocket Client</h1>
+    <div id="sensorData">Waiting for data...</div>
+    <script>
+        var ws = new WebSocket('ws://' + location.hostname + ':81');
 
-// Function to handle the root endpoint
-void handleRoot() {
-    server.send(200, "text/html", "<html><head><script>"
-        "var ws = new WebSocket('ws://' + location.hostname + ':81');"
-        "ws.onmessage = function(event) {"
-        "document.getElementById('sensorData').innerHTML = event.data;"
-        "};"
-        "</script></head><body>"
-        "<h1>Sensor Data</h1>"
-        "<div id='sensorData'>Waiting for data...</div>"
-        "</body></html>");
-}
+        ws.onopen = function(event) {
+            console.log("Connected to WebSocket server");
+            ws.send("Hello Server!"); // Send a message to the server
+        };
 
-void webSocketEvent(uint8_t num, WStype_t type, uint8_t *payload, size_t length) {
-    switch (type) {
-        case WStype_DISCONNECTED:
-            Serial.printf("WebSocket %u disconnected\n", num);
-            break;
-        case WStype_CONNECTED: {
-            IPAddress ip = webSocket.remoteIP(num);
-            Serial.printf("WebSocket %u connected from %s\n", num, ip.toString().c_str());
-            break;
-        }
-        case WStype_TEXT:
-            Serial.printf("WebSocket %u received text: %s\n", num, payload);
-            // You can handle incoming messages here
-            break;
-        case WStype_BIN:
-            Serial.printf("WebSocket %u received binary data\n", num);
-            break;
-        case WStype_PING:
-            Serial.printf("WebSocket %u received ping\n", num);
-            break;
-        case WStype_PONG:
-            Serial.printf("WebSocket %u received pong\n", num);
-            break;
+        ws.onmessage = function(event) {
+            console.log("Message from server: ", event.data);
+            document.getElementById('sensorData').innerText = event.data;
+        };
+
+        ws.onclose = function(event) {
+            console.log("WebSocket connection closed");
+        };
+
+        ws.onerror = function(error) {
+            console.error("WebSocket error observed:", error);
+        };
+    </script>
+</body>
+</html>
+)rawliteral";
+
+// Function to handle WebSocket events
+void onEvent(AsyncWebSocket *server, AsyncWebSocketClient *client, AwsEventType type, void *arg, uint8_t *data, size_t len) {
+    if (type == WS_EVT_CONNECT) {
+        Serial.printf("WebSocket client #%u connected from %s\n", client->id(), client->remoteIP().toString().c_str());
+        client->text("Hello from ESP32 Server");
+    } else if (type == WS_EVT_DISCONNECT) {
+        Serial.printf("WebSocket client #%u disconnected\n", client->id());
+    } else if (type == WS_EVT_DATA) {
+        Serial.printf("WebSocket client #%u sent data: %s\n", client->id(), data);
     }
 }
 
 void webSocketTask(void *pvParameters) {
     while (true) {
-        webSocket.loop();
+        ws.cleanupClients(); // Maintain WebSocket clients
         sendSensorData();
-        vTaskDelay(pdMS_TO_TICKS(500)); // Send data every second
+        vTaskDelay(pdMS_TO_TICKS(100)); // Send data every 100 milliseconds
     }
 }
 
 // Function to handle the sensors endpoint
 void sendSensorData() {
     String sensorData = "";
-    sensorData += "IR1: " + String(sensorReadings[0]) + "\t";
-    sensorData += "IR2: " + String(sensorReadings[1]) + "\t";
-    sensorData += "IR3: " + String(sensorReadings[2]) + "\t";
-    sensorData += "IR4: " + String(sensorReadings[3]) + "\t";
-    sensorData += "IR5: " + String(sensorReadings[4]) + "\t";
-    sensorData += "IR6: " + String(sensorReadings[5]) + "\t";
-    sensorData += "IR7: " + String(sensorReadings[6]) + "\n";
-
-    webSocket.broadcastTXT(sensorData);
+    for (int i = 0; i < 3; i++) {
+        sensorData += "IR" + String(i + 1) + ": " + String(sensorReadings[i]) + "\t";
+    }
+    sensorData += "\t";
+    sensorData += "Time: " + String(millis()) + " ms\n";
+    ws.textAll(sensorData);
 }
+
+void loop() {};
 
 #endif // RUN_WIFI_SENSORS_TEST
 

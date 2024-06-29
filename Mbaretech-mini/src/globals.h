@@ -10,8 +10,8 @@
 #include "IMU.h"
 
 #include <WiFi.h>
-#include <WebServer.h>
-#include <WebSocketsServer.h>
+#include <ESPAsyncWebServer.h>
+#include <AsyncTCP.h>
 
 #include "motor.h"
 
@@ -96,11 +96,11 @@ void handleState();
 void changeState(State newState);
 
 // Web server related functions
-extern WebServer server;
-extern WebSocketsServer webSocket;
+extern AsyncWebServer server;
+extern AsyncWebSocket ws;
 extern void handleRoot();
 extern void sendSensorData();
 extern void webSocketTask(void *pvParameters);
-extern void webSocketEvent(uint8_t num, WStype_t type, uint8_t *payload, size_t length);
+extern void onEvent(AsyncWebSocket *server, AsyncWebSocketClient *client, AwsEventType type, void *arg, uint8_t *data, size_t len);
 
 #endif // GLOBALS_H
