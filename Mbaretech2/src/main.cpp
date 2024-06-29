@@ -34,8 +34,19 @@ void  IRAM_ATTR IR5_ISR() { sensorReadings[4] = digitalRead(IR5); }
 void  IRAM_ATTR IR6_ISR() { sensorReadings[5] = digitalRead(IR6); }
 void  IRAM_ATTR IR7_ISR() { sensorReadings[6] = digitalRead(IR7); }
 
+// TODO: Interrupt en otro core
 void  IRAM_ATTR encoderLeftISR(){encoderLeftCounter++;}
 void  IRAM_ATTR encoderRightISR(){encoderRightCounter++;}
+
+// Create AsyncWebServer instance on port 80
+AsyncWebServer server(80);
+
+// Create a WebSocket instance on port 81
+AsyncWebSocket ws("/ws");
+
+// Network credentials
+const char* ssid = "Pixel";     // Replace with your WiFi network name
+const char* password = "guana123"; // Replace with your WiFi password
 
 void setup() {
     // Initialize Serial communication
@@ -83,11 +94,35 @@ void setup() {
     // Create tasks conditionally
     #ifndef RUN_GYRO_TEST
     #ifndef RUN_IR_SENSOR_TEST
-    #ifndef LS_IR_SENSOR_TEST
+    #ifndef RUN_LS_IR_SENSOR_TEST
+    #ifndef RUN_WIFI_SENSORS_TEST
     xTaskCreate(imuTask, "imuTask", 4096, NULL, 1, &imuTaskHandle);
-    //xTaskCreate(mainTask, "MainTask", 2048, NULL, 1, NULL);
+    xTaskCreate(mainTask, "MainTask", 2048, NULL, 1, NULL);
     #endif  // RUN_IR_SENSOR_TEST
     #endif  // RUN_GYRO_TEST
+    #endif  // RUN_LS_IR_SENSOR_TEST
+    #endif  // RUN_WIFI_SENSORS_TEST
+
+    #ifdef RUN_WIFI_SENSORS_TEST
+    WiFi.begin(ssid, password);
+    while (WiFi.status() != WL_CONNECTED) {
+        delay(500);
+        Serial.println("Connecting to WiFi...");
+        Serial.println(WiFi.status());
+    }
+    Serial.println("Connected to WiFi");
+
+    // Setup WebSocket server
+    ws.onEvent(onEvent);
+    server.addHandler(&ws);
+
+    // Start server
+    server.begin();
+    Serial.println("WebSocket server started");
+    Serial.println("IP address: ");
+    Serial.println(WiFi.localIP());
+
+    xTaskCreate(webSocketTask, "WebSocketTask", 2048, NULL, 1, NULL);
     #endif
 }
 
@@ -96,7 +131,8 @@ void setup() {
 
 #ifndef RUN_GYRO_TEST
 #ifndef RUN_IR_SENSOR_TEST
-#ifndef LS_IR_SENSOR_TEST
+#ifndef RUN_LS_IR_SENSOR_TEST
+#ifndef RUN_WIFI_SENSORS_TEST
 
 void mainTask(void *pvParameters) {
     // Main loop of the FreeRTOS task
@@ -231,5 +267,43 @@ void loop() {
 
 #endif  // RUN_IR_SENSOR_TEST
 #endif  // RUN_GYRO_TEST
-#endif
+#endif  // RUN_LS_IR_SENSOR_TEST
+#endif  // RUN_WIFI_SENSORS_TEST
+
+#ifdef RUN_WIFI_SENSORS_TEST
+
+// Function to handle WebSocket events
+void onEvent(AsyncWebSocket *server, AsyncWebSocketClient *client, AwsEventType type, void *arg, uint8_t *data, size_t len) {
+    if (type == WS_EVT_CONNECT) {
+        Serial.printf("WebSocket client #%u connected from %s\n", client->id(), client->remoteIP().toString().c_str());
+        client->text("Hello from ESP32 Server");
+    } else if (type == WS_EVT_DISCONNECT) {
+        Serial.printf("WebSocket client #%u disconnected\n", client->id());
+    } else if (type == WS_EVT_DATA) {
+        Serial.printf("WebSocket client #%u sent data: %s\n", client->id(), data);
+    }
+}
+
+void webSocketTask(void *pvParameters) {
+    while (true) {
+        ws.cleanupClients(); // Maintain WebSocket clients
+        sendSensorData();
+        vTaskDelay(pdMS_TO_TICKS(100)); // Send data every 100 milliseconds
+    }
+}
+
+// Function to handle the sensors endpoint
+void sendSensorData() {
+    String sensorData = "";
+    for (int i = 0; i < 3; i++) {
+        sensorData += "IR" + String(i + 1) + ": " + String(sensorReadings[i]) + "\t";
+    }
+    sensorData += "\t";
+    sensorData += "Time: " + String(millis()) + " ms\n";
+    ws.textAll(sensorData);
+}
+
+void loop() {};
+
+#endif // RUN_WIFI_SENSORS_TEST
 

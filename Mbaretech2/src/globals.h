@@ -7,6 +7,10 @@
 #include <freertos/queue.h>
 #include <freertos/task.h>
 
+#include <WiFi.h>
+#include <ESPAsyncWebServer.h>
+#include <AsyncTCP.h>
+
 #include "IMU.h"
 
 #define IR1 40
@@ -16,8 +20,6 @@
 #define IR5 17
 #define IR6 4
 #define IR7 5
-
-
 
 #define DIPA 42
 #define DIPB 2
@@ -49,9 +51,6 @@
 #define LINE_BACK_LEFT 19
 #define LINE_BACK_RIGHT 20
 
-
-
-// Hasta aca lo que hay que cambiar
 
 enum Sensor { SIDE_LEFT, SHORT_LEFT, TOP_LEFT, TOP_MID, TOP_RIGHT, SIDE_RIGHT };
 
@@ -98,5 +97,13 @@ void imuTask(void *param);
 void mainTask(void *param);
 void handleState();
 void changeState(State newState);
+
+// Web server related functions
+extern AsyncWebServer server;
+extern AsyncWebSocket ws;
+extern void handleRoot();
+extern void sendSensorData();
+extern void webSocketTask(void *pvParameters);
+extern void onEvent(AsyncWebSocket *server, AsyncWebSocketClient *client, AwsEventType type, void *arg, uint8_t *data, size_t len);
 
 #endif // GLOBALS_H

@@ -263,41 +263,6 @@ void loop() {} //Empty loop since I am using freertos
 
 #ifdef RUN_WIFI_SENSORS_TEST
 
-// HTML content to serve
-const char* htmlPage = R"rawliteral(
-<!DOCTYPE html>
-<html>
-<head>
-    <title>WebSocket Client</title>
-</head>
-<body>
-    <h1>WebSocket Client</h1>
-    <div id="sensorData">Waiting for data...</div>
-    <script>
-        var ws = new WebSocket('ws://' + location.hostname + ':81');
-
-        ws.onopen = function(event) {
-            console.log("Connected to WebSocket server");
-            ws.send("Hello Server!"); // Send a message to the server
-        };
-
-        ws.onmessage = function(event) {
-            console.log("Message from server: ", event.data);
-            document.getElementById('sensorData').innerText = event.data;
-        };
-
-        ws.onclose = function(event) {
-            console.log("WebSocket connection closed");
-        };
-
-        ws.onerror = function(error) {
-            console.error("WebSocket error observed:", error);
-        };
-    </script>
-</body>
-</html>
-)rawliteral";
-
 // Function to handle WebSocket events
 void onEvent(AsyncWebSocket *server, AsyncWebSocketClient *client, AwsEventType type, void *arg, uint8_t *data, size_t len) {
     if (type == WS_EVT_CONNECT) {

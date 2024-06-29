@@ -15,8 +15,6 @@
 
 #include "motor.h"
 
-// CAMBIAR A LOS VERDADEROS PINES Y SENSORES !!!!!!
-
 #define IR1 19
 #define IR2 21
 #define IR3 45
