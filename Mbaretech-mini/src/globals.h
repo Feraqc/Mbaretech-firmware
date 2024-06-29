@@ -11,26 +11,31 @@
 
 #include <WiFi.h>
 #include <WebServer.h>
+#include <WebSocketsServer.h>
 
 // CAMBIAR A LOS VERDADEROS PINES Y SENSORES !!!!!!
 
-#define IR1 40
-#define IR2 39
-#define IR3 38
-#define IR4 18
-#define IR5 17
-#define IR6 4
-#define IR7 5
+#define IR1 19
+#define IR2 18
+#define IR3 45
 
-#define DIPA 37
-#define DIPB 36
-#define DIPC 35
-#define DIPD 34
 
-#define START_PIN 33
+#define DIPA 4
+#define DIPB 5
+#define DIPC 6
+#define DIPD 7
 
-#define MOTOR_LEFT 32
-#define MOTOR_RIGHT 31
+#define START_PIN 12
+
+#define SCL_PIN 9
+#define SDA_PIN 16
+#define INT_PIN 17
+
+#define MOTOR_LEFT 19
+#define MOTOR_RIGHT 18
+
+#define LINE_LEFT 8
+#define LINE_RIGHT 10
 
 // Define pulse width values in microseconds
 #define MIN_PULSE_WIDTH 1080
@@ -96,8 +101,10 @@ uint32_t usToDutyCycle(int pulseWidth);
 
 // Web server related functions
 extern WebServer server;
+extern WebSocketsServer webSocket;
 extern void handleRoot();
-extern void handleSensors();
-extern void webServerTask(void *pvParameters);
+extern void sendSensorData();
+extern void webSocketTask(void *pvParameters);
+extern void webSocketEvent(uint8_t num, WStype_t type, uint8_t *payload, size_t length);
 
 #endif // GLOBALS_H
