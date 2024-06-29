@@ -92,7 +92,7 @@ class IMU{
      // Serial.println(currentAngle);
     }
 
-    bool checkRotation(float desiredAngle){
+    bool checkRotation(int desiredAngle){
       static float initialAngle = currentAngle;
       if(abs(initialAngle-currentAngle) >= desiredAngle){
         initialAngle = currentAngle;
