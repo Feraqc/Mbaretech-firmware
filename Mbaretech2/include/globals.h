@@ -44,7 +44,7 @@
 #define LINE_BACK_RIGHT 20
 
 
-enum Sensor { SIDE_LEFT, SHORT_LEFT, TOP_LEFT, TOP_MID, TOP_RIGHT, SIDE_RIGHT };
+enum Sensor { SIDE_LEFT, SHORT_LEFT, TOP_LEFT, TOP_MID, TOP_RIGHT, SHORT_RIGHT, SIDE_RIGHT };
 
 extern volatile bool sensorReadings[7];
 extern volatile bool startSignal;  // Creo que debe ser volatile si le trato con interrupt

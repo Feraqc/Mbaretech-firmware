@@ -157,6 +157,19 @@ void handleState() {
             // BOUND_MOVE, ---> Todavia no escribi el caso hay que hablar como
             // manejar DEFAULT_ACTION_STATE
         case WAIT_ON_START:
+            Serial.println("State: WAIT_ON_START");
+            if (digitalRead(START_PIN)) {
+                if (digitalRead(DIPA)) {  // Se puede cambiar a otro dip segun
+                                          // necesitemos para estrategia
+                    changeState(INITIAL_MOVEMENT);
+                }
+                else {
+                    // TODO: Leer todos los sensores
+                }
+            }
+            else {
+                // TODO: Motor OFF
+            }
             break;
 
         case INITIAL_MOVEMENT:
