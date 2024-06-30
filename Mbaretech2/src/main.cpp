@@ -56,6 +56,7 @@ void setup() {
     rightMotor.begin();
     leftMotor.begin();
 
+    // IR Sensors
     pinMode(IR1, INPUT);
     pinMode(IR2, INPUT);
     pinMode(IR3, INPUT);
@@ -72,7 +73,16 @@ void setup() {
     attachInterrupt(digitalPinToInterrupt(IR6), IR6_ISR, CHANGE);
     attachInterrupt(digitalPinToInterrupt(IR7), IR7_ISR, CHANGE);
 
+    // DIPS
+    pinMode(DIPA, INPUT);
+    pinMode(DIPB, INPUT);
+    pinMode(DIPC, INPUT);
+    pinMode(DIPD, INPUT);
+
+    // Start pin
     pinMode(START_PIN, INPUT);
+
+    // Encoders
     pinMode(encoderLeft, INPUT);
     pinMode(encoderRight, INPUT);
     attachInterrupt(digitalPinToInterrupt(encoderLeft), encoderLeftISR, RISING);
