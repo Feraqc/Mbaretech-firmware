@@ -56,6 +56,9 @@ void setup() {
     rightMotor.begin();
     leftMotor.begin();
 
+    // Line sensors 
+    lineSensorsInit();
+
     // IR Sensors
     pinMode(IR1, INPUT);
     pinMode(IR2, INPUT);
@@ -83,10 +86,10 @@ void setup() {
     pinMode(START_PIN, INPUT);
 
     // Encoders
-    pinMode(encoderLeft, INPUT);
-    pinMode(encoderRight, INPUT);
-    attachInterrupt(digitalPinToInterrupt(encoderLeft), encoderLeftISR, RISING);
-    attachInterrupt(digitalPinToInterrupt(encoderRight), encoderRightISR, RISING);
+    pinMode(ENCODER_LEFT, INPUT);
+    pinMode(ENCODER_RIGHT, INPUT);
+    attachInterrupt(digitalPinToInterrupt(ENCODER_LEFT), encoderLeftISR, RISING);
+    attachInterrupt(digitalPinToInterrupt(ENCODER_RIGHT), encoderRightISR, RISING);
 
     // Create the queues
     imuDataQueue = xQueueCreate(10, sizeof(float));  // tamanho arbitrario
@@ -107,8 +110,10 @@ void setup() {
     #ifndef RUN_LS_IR_SENSOR_TEST
     #ifndef RUN_WIFI_SENSORS_TEST
     #ifndef RUN_DRIVER_TEST
+    #ifndef RUN_LINE_SENSOR_TEST
     xTaskCreate(imuTask, "imuTask", 4096, NULL, 1, &imuTaskHandle);
     xTaskCreate(mainTask, "MainTask", 2048, NULL, 1, NULL);
+    #endif  // RUN_LINE_SENSOR_TEST
     #endif  // RUN_IR_SENSOR_TEST
     #endif  // RUN_GYRO_TEST
     #endif  // RUN_LS_IR_SENSOR_TEST
@@ -146,6 +151,7 @@ void setup() {
 #ifndef RUN_LS_IR_SENSOR_TEST
 #ifndef RUN_WIFI_SENSORS_TEST
 #ifndef RUN_DRIVER_TEST
+#ifndef RUN_LINE_SENSOR_TEST
 
 void mainTask(void *pvParameters) {
     // Main loop of the FreeRTOS task
@@ -291,6 +297,7 @@ void loop() {
 
 } 
 
+#endif  // RUN_LINE_SENSOR_TEST
 #endif  // RUN_IR_SENSOR_TEST
 #endif  // RUN_GYRO_TEST
 #endif  // RUN_LS_IR_SENSOR_TEST

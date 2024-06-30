@@ -14,6 +14,7 @@
 #include "IMU.h"
 
 #include "motor.h"
+#include "lineSensor.h"
 
 #define IR1 40
 #define IR2 39
@@ -38,10 +39,10 @@
 #define ENCODER_LEFT 14
 #define ENCODER_RIGHT 12
 
-#define LINE_FRONT_LEFT 3
-#define LINE_FRONT_RIGHT 8
-#define LINE_BACK_LEFT 19
-#define LINE_BACK_RIGHT 20
+#define LINE_FRONT_LEFT ADC1_CHANNEL_2
+#define LINE_FRONT_RIGHT ADC1_CHANNEL_7
+#define LINE_BACK_LEFT ADC2_CHANNEL_8
+#define LINE_BACK_RIGHT ADC2_CHANNEL_9
 
 
 enum Sensor { SIDE_LEFT, SHORT_LEFT, TOP_LEFT, TOP_MID, TOP_RIGHT, SHORT_RIGHT, SIDE_RIGHT };
