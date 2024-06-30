@@ -7,8 +7,15 @@
 #include <freertos/queue.h>
 #include <freertos/task.h>
 
+#include <WiFi.h>
+#include <ESPAsyncWebServer.h>
+#include <AsyncTCP.h>
+
 #include "IMU.h"
 #include "motor.h"	
+#include "lineSensor.h"
+
+#include "motor.h"
 #include "lineSensor.h"
 
 #define IR1 40
@@ -31,15 +38,6 @@
 
 #define HALL_PIN 43
 
-#define PWM_A 48   
-#define PWM_B 35
-
-#define PIN_A0 0
-#define PIN_A1 45
-
-#define PIN_B0 36 
-#define PIN_B1 37
-
 #define ENCODER_LEFT 14
 #define ENCODER_RIGHT 12
 
@@ -49,23 +47,23 @@
 #define LINE_BACK_RIGHT ADC2_CHANNEL_9
 
 
-
-// Hasta aca lo que hay que cambiar
-
-enum Sensor { SIDE_LEFT, SHORT_LEFT, TOP_LEFT, TOP_MID, TOP_RIGHT, SIDE_RIGHT };
+enum Sensor { SIDE_LEFT, SHORT_LEFT, TOP_LEFT, TOP_MID, TOP_RIGHT, SHORT_RIGHT, SIDE_RIGHT };
 
 extern volatile bool sensorReadings[7];
 extern volatile bool startSignal;  // Creo que debe ser volatile si le trato con interrupt
 extern bool dipSwitchPin[4];  // de A a D
 
 // usar IRAM_ATTR para usar la ram interna
-void IRAM_ATTR IR1_ISR();
-void IRAM_ATTR IR2_ISR();
-void IRAM_ATTR IR3_ISR();
-void IRAM_ATTR IR4_ISR();
-void IRAM_ATTR IR5_ISR();
-void IRAM_ATTR IR6_ISR();
-void IRAM_ATTR IR7_ISR();
+void IR1_ISR();
+void IR2_ISR();
+void IR3_ISR();
+void IR4_ISR();
+void IR5_ISR();
+void IR6_ISR();
+void IR7_ISR();
+
+extern Motor leftMotor;
+extern Motor rightMotor;
 
 enum State {
     WAIT_ON_START,
@@ -97,5 +95,13 @@ void imuTask(void *param);
 void mainTask(void *param);
 void handleState();
 void changeState(State newState);
+
+// Web server related functions
+extern AsyncWebServer server;
+extern AsyncWebSocket ws;
+extern void handleRoot();
+extern void sendSensorData();
+extern void webSocketTask(void *pvParameters);
+extern void onEvent(AsyncWebSocket *server, AsyncWebSocketClient *client, AwsEventType type, void *arg, uint8_t *data, size_t len);
 
 #endif // GLOBALS_H

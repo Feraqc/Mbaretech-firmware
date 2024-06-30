@@ -10,12 +10,10 @@
 #include "IMU.h"
 
 #include <WiFi.h>
-#include <WebServer.h>
-#include <WebSocketsServer.h>
+#include <ESPAsyncWebServer.h>
+#include <AsyncTCP.h>
 
 #include "motor.h"
-
-// CAMBIAR A LOS VERDADEROS PINES Y SENSORES !!!!!!
 
 #define IR1 19
 #define IR2 21
@@ -43,14 +41,7 @@
 #define PWM_B 12
 #define CHANNEL_RIGHT LEDC_CHANNEL_0
 
-// LEDC (PWM) settings
-const int freq = 50;  // 50Hz frequency for RC control
-const int period = 20000; // 20 milliseconds (20000 microseconds).
-const int leftMotorChannel = 0;
-const int rightMotorChannel = 1;
-const int resolution = 16;  // 16-bit resolution
-
-enum Sensor { SIDE_LEFT, SHORT_LEFT, TOP_LEFT, TOP_MID, TOP_RIGHT, SIDE_RIGHT };
+enum Sensor { SHORT_RIGHT, TOP_MID, SHORT_LEFT};
 
 extern volatile bool sensorReadings[7];
 extern volatile bool startSignal;  // Creo que debe ser volatile si le trato con interrupt
@@ -72,11 +63,8 @@ enum State {
     TOP_SENSORS_CHECK,
     TOP_LEFT_MOVE,
     TOP_RIGHT_MOVE,
-    SIDE_SENSORS_CHECK,
-    SIDE_LEFT_MOVE,
-    SIDE_RIGHT_MOVE,
-    BOUND_MOVE,
-    DEFAULT_ACTION_STATE
+    SEARCH,
+    BOUND_MOVE
 };
 
 extern volatile State currentState;
@@ -96,11 +84,11 @@ void handleState();
 void changeState(State newState);
 
 // Web server related functions
-extern WebServer server;
-extern WebSocketsServer webSocket;
+extern AsyncWebServer server;
+extern AsyncWebSocket ws;
 extern void handleRoot();
 extern void sendSensorData();
 extern void webSocketTask(void *pvParameters);
-extern void webSocketEvent(uint8_t num, WStype_t type, uint8_t *payload, size_t length);
+extern void onEvent(AsyncWebSocket *server, AsyncWebSocketClient *client, AwsEventType type, void *arg, uint8_t *data, size_t len);
 
 #endif // GLOBALS_H
