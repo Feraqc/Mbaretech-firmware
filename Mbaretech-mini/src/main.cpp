@@ -20,9 +20,9 @@ TaskHandle_t imuTaskHandle;
 
 int desiredAngle;
 
-void IR1_ISR() { sensorReadings[0] = digitalRead(IR1); }
-void IR2_ISR() { sensorReadings[1] = digitalRead(IR2); }
-void IR3_ISR() { sensorReadings[2] = digitalRead(IR3); }
+void IR1_ISR() { sensorReadings[0] = digitalRead(IR1); }  // 0 esta sensor izquierdo le llamo short right
+void IR2_ISR() { sensorReadings[1] = digitalRead(IR2); }  // 1 medio no problem
+void IR3_ISR() { sensorReadings[2] = digitalRead(IR3); }  // 2 esta sensor derecho le llamo short left
 
 // Create AsyncWebServer instance on port 80
 AsyncWebServer server(80);
@@ -79,10 +79,10 @@ void setup() {
     #ifndef RUN_WIFI_SENSORS_TEST
     xTaskCreate(imuTask, "imuTask", 4096, NULL, 1, &imuTaskHandle);
     xTaskCreate(mainTask, "MainTask", 2048, NULL, 1, NULL);
-    #endif  // RUN_IR_SENSOR_TEST
-    #endif  // RUN_GYRO_TEST
-    #endif  // RUN_DRIVER_TEST
-    #endif  // RUN_WIFI_SENSORS_TEST
+    #endif // RUN_WIFI_SENSORS_TEST
+    #endif // RUN_DRIVER_TEST
+    #endif // RUN_IR_SENSOR_TEST
+    #endif // RUN_GYRO_TEST
 
     #ifdef RUN_WIFI_SENSORS_TEST
     WiFi.begin(ssid, password);
@@ -127,8 +127,6 @@ void handleState() {
             // MID_MOVE,
             // TOP_LEFT_MOVE,
             // TOP_RIGHT_MOVE,
-            // SIDE_LEFT_MOVE,
-            // SIDE_RIGHT_MOVE,
             // BOUND_MOVE, ---> Todavia no escribi el caso hay que hablar como
             // manejar DEFAULT_ACTION_STATE
         case WAIT_ON_START:
@@ -139,7 +137,9 @@ void handleState() {
                     changeState(INITIAL_MOVEMENT);
                 }
                 else {
-                    changeState(MID_SENSOR_CHECK);
+                    sensorReadings[0] = digitalRead(IR1);
+                    sensorReadings[1] = digitalRead(IR2);
+                    sensorReadings[2] = digitalRead(IR3);
                 }
             }
             else {
@@ -158,7 +158,7 @@ void handleState() {
                 changeState(MID_MOVE);
             }
             else {
-                changeState(TOP_SENSORS_CHECK);
+                changeState(TOP_SENSORS_CHECK); // En realidad no hay top pero si no lee el medio se usa como top
             }
             break;
 
@@ -174,14 +174,14 @@ void handleState() {
 
         case TOP_SENSORS_CHECK:
             Serial.println("State: TOP_SENSOR_CHECK");
-            if (sensorReadings[TOP_LEFT]) {
+            if (sensorReadings[SHORT_LEFT]) {
                 changeState(TOP_LEFT_MOVE);
             }
-            else if (sensorReadings[TOP_RIGHT]) {
+            else if (sensorReadings[SHORT_RIGHT]) {
                 changeState(TOP_RIGHT_MOVE);
             }
             else {
-                changeState(SIDE_SENSORS_CHECK);
+                changeState(SEARCH);
             }
             break;
 
@@ -197,38 +197,12 @@ void handleState() {
             changeState(MID_SENSOR_CHECK);
             break;
 
-        case SIDE_SENSORS_CHECK:
-            Serial.println("State: SIDE_SENSORS_CHECK");
-            if (sensorReadings[SIDE_LEFT]) {
-                changeState(SIDE_LEFT_MOVE);
-            }
-            else if (sensorReadings[SIDE_RIGHT]) {
-                changeState(SIDE_RIGHT_MOVE);
-            }
-            else {
-                changeState(DEFAULT_ACTION_STATE);
-            }
-            break;
-
-        case SIDE_LEFT_MOVE:
-            Serial.println("State: SIDE_LEFT_MOVE");
-            // TODO: LEFTTURN90
-            changeState(MID_SENSOR_CHECK);
-            break;
-
-        case SIDE_RIGHT_MOVE:
-            Serial.println("State: SIDE_RIGHT_MOVE");
-            // TODO: RIGHTTURN90
-            changeState(MID_SENSOR_CHECK);
-            break;
-
-        case DEFAULT_ACTION_STATE:
+        case SEARCH:
             Serial.println("State: DEFAULT_ACTION_STATE");
             // TODO: Aca es un dependiendo del switch por ejemplo
             // para saber que queremos que haga por default
             // puede ser turco, ir para delante, quedarse quieto
-            changeState(
-                MID_SENSOR_CHECK);  // mientras le pongo que mire sensores nomas
+            changeState(MID_SENSOR_CHECK);  // mientras le pongo que mire sensores nomas
 
         default:
             Serial.println("State: UNKNOWN");
@@ -256,10 +230,10 @@ void imuTask(void *param) {
 
 void loop() {} //Empty loop since I am using freertos
 
-#endif  // RUN_IR_SENSOR_TEST
-#endif  // RUN_GYRO_TEST
-#endif  // RUN_DRIVER_TEST
-#endif  // RUN_WIFI_SENSORS_TEST 
+#endif // RUN_WIFI_SENSORS_TEST
+#endif // RUN_DRIVER_TEST
+#endif // RUN_IR_SENSOR_TEST
+#endif // RUN_GYRO_TEST
 
 #ifdef RUN_WIFI_SENSORS_TEST
 
