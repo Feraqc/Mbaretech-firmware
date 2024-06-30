@@ -3,19 +3,14 @@
 #define MOTOR_H
 #include <Arduino.h>
 #include "driver/ledc.h"
+#include "globals.h"
 
 
 #define FREQUENCY 40000
 //MOTOR A
-#define pinPwmA 48
-#define pinA0 0
-#define pinA1 45
 #define pwmChannelLeft LEDC_CHANNEL_1
 
 //MOTORB
-#define pinPwmB 35
-#define pinB0 36
-#define pinB1 37
 #define pwmChannelRight LEDC_CHANNEL_0
 
 class Motor{

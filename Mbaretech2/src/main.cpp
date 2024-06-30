@@ -1,16 +1,12 @@
 #include "globals.h"  // Include the header file
-#include "motor.h"
-
-#define encoderLeft 12
-#define encoderRight 14
 
 // Define the shared variables
 volatile bool sensorReadings[7];
 volatile bool startSignal = false; // Creo que debe ser volatile si le trato con interrupt
 bool dipSwitchPin[4];  // de A a D
 
-Motor leftMotor(pinPwmA,pinA0,pinA1,pwmChannelLeft);
-Motor rightMotor(pinPwmB,pinB0,pinB1,pwmChannelRight);
+Motor leftMotor(PWM_A,PIN_A0,PIN_A1,pwmChannelLeft);
+Motor rightMotor(PWM_B,PIN_B0,PIN_B1,pwmChannelRight);
 
 volatile State currentState = WAIT_ON_START;
 
@@ -41,9 +37,10 @@ void setup() {
     // Initialize Serial communication
     Serial.begin(115200);
     imu.begin();
-    
     rightMotor.begin();
     leftMotor.begin();
+
+    lineSensorsInit();
 
     pinMode(IR1, INPUT);
     pinMode(IR2, INPUT);
@@ -62,10 +59,10 @@ void setup() {
     attachInterrupt(digitalPinToInterrupt(IR7), IR7_ISR, CHANGE);
 
     pinMode(START_PIN, INPUT);
-    pinMode(encoderLeft, INPUT);
-    pinMode(encoderRight, INPUT);
-    attachInterrupt(digitalPinToInterrupt(encoderLeft), encoderLeftISR, RISING);
-    attachInterrupt(digitalPinToInterrupt(encoderRight), encoderRightISR, RISING);
+    pinMode(ENCODER_LEFT, INPUT);
+    pinMode(ENCODER_RIGHT, INPUT);
+    attachInterrupt(digitalPinToInterrupt(ENCODER_LEFT), encoderLeftISR, RISING);
+    attachInterrupt(digitalPinToInterrupt(ENCODER_RIGHT), encoderRightISR, RISING);
 
     // Create the queues
     imuDataQueue = xQueueCreate(10, sizeof(float));  // tamanho arbitrario
@@ -83,9 +80,9 @@ void setup() {
     // Create tasks conditionally
     #ifndef RUN_GYRO_TEST
     #ifndef RUN_IR_SENSOR_TEST
-    #ifndef LS_IR_SENSOR_TEST
+    #ifndef RUN_LS_SENSOR_TEST
     xTaskCreate(imuTask, "imuTask", 4096, NULL, 1, &imuTaskHandle);
-    //xTaskCreate(mainTask, "MainTask", 2048, NULL, 1, NULL);
+    xTaskCreate(mainTask, "MainTask", 2048, NULL, 1, NULL);
     #endif  // RUN_IR_SENSOR_TEST
     #endif  // RUN_GYRO_TEST
     #endif
@@ -96,7 +93,7 @@ void setup() {
 
 #ifndef RUN_GYRO_TEST
 #ifndef RUN_IR_SENSOR_TEST
-#ifndef LS_IR_SENSOR_TEST
+#ifndef RUN_LS_SENSOR_TEST
 
 void mainTask(void *pvParameters) {
     // Main loop of the FreeRTOS task
@@ -222,9 +219,9 @@ void imuTask(void *param) {
     }
 }
 
-void lineSensorTask(){
-    
+void lineSensorTask(){;
 }
+
 void loop() {
 
 } 
