@@ -6,6 +6,7 @@
 #include <freertos/FreeRTOS.h>
 #include <freertos/queue.h>
 #include <freertos/task.h>
+#include <freertos/semphr.h>
 
 #include "IMU.h"
 
@@ -41,6 +42,17 @@
 #define PWM_B 12
 #define CHANNEL_RIGHT LEDC_CHANNEL_0
 
+// Define the tick interval in milliseconds
+// 10 ms es el estandard para freertos
+#define TICK_INTERVAL_MS 5
+
+// Define ticks to turn specific angles
+#define TICKS_FOR_30_DEGREES 20  // Example values
+#define TICKS_FOR_45_DEGREES 30  // Example values
+#define TICKS_FOR_90_DEGREES 60  // Example values
+#define TICKS_FOR_180_DEGREES 120 // Example values
+
+
 enum Sensor { SHORT_RIGHT, TOP_MID, SHORT_LEFT};
 
 extern volatile bool sensorReadings[7];
@@ -54,6 +66,13 @@ void IR3_ISR();
 
 extern Motor leftMotor;
 extern Motor rightMotor;
+
+extern TaskHandle_t imuTaskHandle;
+extern TaskHandle_t leftTurnTaskHandle;
+extern TaskHandle_t rightTurnTaskHandle;
+extern TaskHandle_t forwardTaskHandle;
+extern SemaphoreHandle_t motorControlMutex;
+extern volatile bool stopTask;
 
 enum State {
     WAIT_ON_START,
@@ -82,6 +101,16 @@ void imuTask(void *param);
 void mainTask(void *param);
 void handleState();
 void changeState(State newState);
+
+// Movements tasks
+void leftTurnTask(void *pvParameters);
+void rightTurnTask(void *pvParameters);
+void forwardMovement(uint32_t speed);
+
+// Movement starts
+void startLeftTurn(uint32_t ticks);
+void startRightTurn(uint32_t ticks);
+void startForward(uint32_t speed);
 
 // Web server related functions
 extern AsyncWebServer server;

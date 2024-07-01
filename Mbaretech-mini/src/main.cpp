@@ -1,5 +1,4 @@
 #include "globals.h"  // Include the header file
-//#include "motor.h"
 
 // Define the shared variables
 volatile bool sensorReadings[7];
@@ -16,6 +15,22 @@ QueueHandle_t cmdQueue;
 
 TaskHandle_t imuTaskHandle;
 
+// Define task handles for motor control tasks
+TaskHandle_t leftTurnTaskHandle = NULL;
+TaskHandle_t rightTurnTaskHandle = NULL;
+TaskHandle_t forwardTaskHandle = NULL;
+
+// Define a mutex for motor control
+SemaphoreHandle_t motorControlMutex;
+
+// Function prototypes
+void leftTurnTask(void *pvParameters);
+void rightTurnTask(void *pvParameters);
+void forwardMovement(uint32_t speed);
+
+// Notification value to stop tasks early
+volatile bool stopTask = false;
+
 //IMU imu;
 
 int desiredAngle;
@@ -24,6 +39,7 @@ void IR1_ISR() { sensorReadings[0] = digitalRead(IR1); }  // 0 esta sensor izqui
 void IR2_ISR() { sensorReadings[1] = digitalRead(IR2); }  // 1 medio no problem
 void IR3_ISR() { sensorReadings[2] = digitalRead(IR3); }  // 2 esta sensor derecho le llamo short left
 
+#ifdef RUN_WIFI_SENSORS_TEST
 // Create AsyncWebServer instance on port 80
 AsyncWebServer server(80);
 
@@ -33,6 +49,7 @@ AsyncWebSocket ws("/ws");
 // Replace with your network credentials
 const char* ssid = "Pixel";     // Replace with your WiFi network name
 const char* password = "guana123"; // Replace with your WiFi password
+#endif   // RUN_WIFI_SENSORS_TEST
 
 void setup() {
     // Initialize Serial communication
@@ -59,6 +76,9 @@ void setup() {
     rightMotor.begin();
     leftMotor.begin();
 
+    // Create the motor control mutex
+    motorControlMutex = xSemaphoreCreateMutex();
+
     // Create the queues
     imuDataQueue = xQueueCreate(10, sizeof(float));  // tamanho arbitrario
     cmdQueue = xQueueCreate(10, sizeof(float));
@@ -79,6 +99,10 @@ void setup() {
     #ifndef RUN_WIFI_SENSORS_TEST
     xTaskCreate(imuTask, "imuTask", 4096, NULL, 1, &imuTaskHandle);
     xTaskCreate(mainTask, "MainTask", 2048, NULL, 1, NULL);
+
+    // Create the motor control tasks (tasks are created but initially suspended)
+    xTaskCreate(leftTurnTask, "Left Turn Task", 1024, NULL, 2, &leftTurnTaskHandle);
+    xTaskCreate(rightTurnTask, "Right Turn Task", 1024, NULL, 2, &rightTurnTaskHandle);
     #endif // RUN_WIFI_SENSORS_TEST
     #endif // RUN_DRIVER_TEST
     #endif // RUN_IR_SENSOR_TEST
@@ -164,6 +188,8 @@ void handleState() {
 
         case MID_MOVE:
             Serial.println("State: MID_MOVE");
+            startForward(20);
+            // Hacer el if else if 
             // TODO: Do movement
             // IF FRONTLEFT AND FRONTRIGHT --> 100%
             // else if FRONTLEFT --> shortLeft
@@ -187,13 +213,13 @@ void handleState() {
 
         case TOP_LEFT_MOVE:
             Serial.println("State: TOP_LEFT_MOVE");
-            // TODO: LeftTurn45
+            startLeftTurn(TICKS_FOR_45_DEGREES); // Example: 45-degree left turn
             changeState(MID_SENSOR_CHECK);
             break;
 
         case TOP_RIGHT_MOVE:
             Serial.println("State: TOP_RIGHT_MOVE");
-            // TODO: RightTurn45
+            startRightTurn(TICKS_FOR_45_DEGREES); // Example: 45-degree right turn
             changeState(MID_SENSOR_CHECK);
             break;
 
@@ -271,6 +297,108 @@ void sendSensorData() {
 void loop() {};
 
 #endif // RUN_WIFI_SENSORS_TEST
+
+
+// Left turn task
+void leftTurnTask(void *pvParameters) {
+    uint32_t ticks = *((uint32_t *)pvParameters); // Extract the ticks parameter
+
+    while (true) {
+        // Suspend this task until it's triggered
+        vTaskSuspend(NULL);
+
+        // Take the mutex before starting the turn
+        if (xSemaphoreTake(motorControlMutex, portMAX_DELAY) == pdTRUE) {
+            // Start the in-place left rotation
+            leftMotor.reverse(50);  // Adjust speed percentage as needed
+            rightMotor.forward(50); // Adjust speed percentage as needed
+
+            // Run for the calculated number of ticks
+            for (uint32_t i = 0; i < ticks; i++) {
+                if (stopTask) break;
+                vTaskDelay(pdMS_TO_TICKS(TICK_INTERVAL_MS));
+            }
+
+            // Stop the motors
+            leftMotor.brake();
+            rightMotor.brake();
+
+            // Release the mutex
+            xSemaphoreGive(motorControlMutex);
+        }
+    }
+}
+
+// Right turn task
+void rightTurnTask(void *pvParameters) {
+    uint32_t ticks = *((uint32_t *)pvParameters); // Extract the ticks parameter
+
+    while (true) {
+        // Suspend this task until it's triggered
+        vTaskSuspend(NULL);
+
+        // Take the mutex before starting the turn
+        if (xSemaphoreTake(motorControlMutex, portMAX_DELAY) == pdTRUE) {
+            // Start the in-place right rotation
+            leftMotor.forward(50);  // Adjust speed percentage as needed
+            rightMotor.reverse(50); // Adjust speed percentage as needed
+
+            // Run for the calculated number of ticks
+            for (uint32_t i = 0; i < ticks; i++) {
+                if (stopTask) break;
+                vTaskDelay(pdMS_TO_TICKS(TICK_INTERVAL_MS));
+            }
+
+            // Stop the motors
+            leftMotor.brake();
+            rightMotor.brake();
+
+            // Release the mutex
+            xSemaphoreGive(motorControlMutex);
+        }
+    }
+}
+
+// Forward movement function
+void forwardMovement(uint32_t speed) {
+    if (xSemaphoreTake(motorControlMutex, portMAX_DELAY) == pdTRUE) {
+        // Start the forward movement
+        leftMotor.forward(speed);  // Adjust speed percentage as needed
+        rightMotor.forward(speed); // Adjust speed percentage as needed
+        // No loop or duration; the motors will keep running until interrupted
+    }
+}
+
+// Function to trigger left turn
+void startLeftTurn(uint32_t ticks) {
+    stopTask = true; // Set flag to stop current task
+    vTaskDelay(pdMS_TO_TICKS(TICK_INTERVAL_MS)); // Give a little time for current task to stop
+    if (leftTurnTaskHandle != NULL) {
+        stopTask = false; // Reset flag
+        xTaskNotify(leftTurnTaskHandle, ticks, eSetValueWithOverwrite); // Pass ticks as notification value
+        vTaskResume(leftTurnTaskHandle);
+    }
+}
+
+// Function to trigger right turn
+void startRightTurn(uint32_t ticks) {
+    stopTask = true; // Set flag to stop current task
+    vTaskDelay(pdMS_TO_TICKS(TICK_INTERVAL_MS)); // Give a little time for current task to stop
+    if (rightTurnTaskHandle != NULL) {
+        stopTask = false; // Reset flag
+        xTaskNotify(rightTurnTaskHandle, ticks, eSetValueWithOverwrite); // Pass ticks as notification value
+        vTaskResume(rightTurnTaskHandle);
+    }
+}
+
+// Function to trigger forward movement
+void startForward(uint32_t speed) {
+    stopTask = true; // Set flag to stop current task
+    vTaskDelay(pdMS_TO_TICKS(TICK_INTERVAL_MS)); // Give a little time for current task to stop
+    stopTask = false; // Reset flag
+    forwardMovement(speed);
+}
+
 
 
 
