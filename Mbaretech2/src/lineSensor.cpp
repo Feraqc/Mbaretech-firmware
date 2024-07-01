@@ -1,4 +1,4 @@
-
+#include "lineSensor.h"
 
 void lineSensorsInit(){
 
