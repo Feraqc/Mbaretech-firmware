@@ -97,9 +97,11 @@ void setup() {
     #ifndef RUN_IR_SENSOR_TEST
     #ifndef RUN_DRIVER_TEST
     #ifndef RUN_WIFI_SENSORS_TEST
+    #ifndef RUN_MOVEMENTS_TEST
     xTaskCreate(imuTask, "imuTask", 4096, NULL, 1, &imuTaskHandle);
     xTaskCreate(mainTask, "MainTask", 2048, NULL, 1, NULL);
-
+    #endif // RUN_MOVEMENTS_TEST
+    // Para movement tests si necesito los turn tasks
     // Create the motor control tasks (tasks are created but initially suspended)
     xTaskCreate(leftTurnTask, "Left Turn Task", 1024, NULL, 2, &leftTurnTaskHandle);
     xTaskCreate(rightTurnTask, "Right Turn Task", 1024, NULL, 2, &rightTurnTaskHandle);
@@ -135,12 +137,13 @@ void setup() {
 #ifndef RUN_IR_SENSOR_TEST
 #ifndef RUN_DRIVER_TEST
 #ifndef RUN_WIFI_SENSORS_TEST
+#ifndef RUN_MOVEMENTS_TEST
 
 void mainTask(void *pvParameters) {
     // Main loop of the FreeRTOS task
     while (true) {
         handleState();
-        vTaskDelay(pdMS_TO_TICKS(100));  // Delay for 100 ms
+        vTaskDelay(pdMS_TO_TICKS(10));  // Delay for 10 ms
     }
 }
 
@@ -256,10 +259,12 @@ void imuTask(void *param) {
 
 void loop() {} //Empty loop since I am using freertos
 
+#endif // RUN_MOVEMENTS_TEST
 #endif // RUN_WIFI_SENSORS_TEST
 #endif // RUN_DRIVER_TEST
 #endif // RUN_IR_SENSOR_TEST
 #endif // RUN_GYRO_TEST
+
 
 #ifdef RUN_WIFI_SENSORS_TEST
 
