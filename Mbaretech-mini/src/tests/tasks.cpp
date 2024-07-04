@@ -1,3 +1,4 @@
+#ifdef RUN_TASK_TEST
 #include "globals.h"
 
 void imuTask(void *param) {
@@ -106,3 +107,5 @@ void motorTask(void *param) {
     vTaskDelay(pdMS_TO_TICKS(10));
     }
 }
+
+#endif
