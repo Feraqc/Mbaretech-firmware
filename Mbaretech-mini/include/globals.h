@@ -6,12 +6,15 @@
 #include <freertos/FreeRTOS.h>
 #include <freertos/queue.h>
 #include <freertos/task.h>
+#include "freertos/semphr.h"
 
 #include "IMU.h"
 
 #include <WiFi.h>
 #include <ESPAsyncWebServer.h>
 #include <AsyncTCP.h>
+#include "esp_efuse.h"
+#include "esp_efuse_table.h"
 
 #include "motor.h"
 
@@ -34,12 +37,9 @@
 #define LINE_RIGHT 17
 
 //MOTOR A
-#define PWM_A 13
-#define CHANNEL_LEFT LEDC_CHANNEL_1
-
+#define PWM_A 12
 //MOTORB
-#define PWM_B 12
-#define CHANNEL_RIGHT LEDC_CHANNEL_0
+#define PWM_B 13
 
 enum Sensor { SHORT_RIGHT, TOP_MID, SHORT_LEFT};
 
@@ -73,10 +73,11 @@ extern QueueHandle_t imuDataQueue;
 extern QueueHandle_t cmdQueue;
 
 extern TaskHandle_t imuTaskHandle;
+extern SemaphoreHandle_t gyroDataMutex;
 
 extern IMU imu;
 
-extern int desiredAngle;
+extern int currentAngle;
 
 void imuTask(void *param);
 void mainTask(void *param);
@@ -90,5 +91,8 @@ extern void handleRoot();
 extern void sendSensorData();
 extern void webSocketTask(void *pvParameters);
 extern void onEvent(AsyncWebSocket *server, AsyncWebSocketClient *client, AwsEventType type, void *arg, uint8_t *data, size_t len);
+
+
+
 
 #endif // GLOBALS_H
