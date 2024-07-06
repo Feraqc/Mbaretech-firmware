@@ -1,5 +1,5 @@
-#include "lineSensor.h"
-
+#include "globals.h"
+#include <driver/adc.h>
 
 void lineSensorsInit(){
 
@@ -24,10 +24,9 @@ int readLineSensorBack(adc2_channel_t channel) {
     }
 }
 
-bool checkSensor(int measurement,int threshold){
+bool checkLineSensor(int measurement,int threshold){
   static uint8_t counter = 0;
   if(measurement<=threshold){counter++;}
   else{counter = 0;}
-
-  return counter >=10; 
+  return (counter >=10); 
 }

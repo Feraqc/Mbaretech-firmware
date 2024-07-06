@@ -6,17 +6,17 @@
 #include <freertos/FreeRTOS.h>
 #include <freertos/queue.h>
 #include <freertos/task.h>
+#include "freertos/semphr.h"
 
 #include <WiFi.h>
 #include <ESPAsyncWebServer.h>
 #include <AsyncTCP.h>
+#include "esp_efuse.h"
+#include "esp_efuse_table.h"
+
 
 #include "IMU.h"
 #include "motor.h"	
-#include "lineSensor.h"
-
-#include "motor.h"
-#include "lineSensor.h"
 
 #define IR1 40
 #define IR2 39
@@ -45,11 +45,18 @@
 #define LINE_FRONT_RIGHT ADC1_CHANNEL_7
 #define LINE_BACK_LEFT ADC2_CHANNEL_8
 #define LINE_BACK_RIGHT ADC2_CHANNEL_9
+#define ADC_WIDTH ADC_WIDTH_BIT_12
+
+void lineSensorsInit();
+int readLineSensorFront(adc1_channel_t channel);
+int readLineSensorBack(adc2_channel_t channel);
+bool checkLineSensor(int measurement,int threshold);
+extern bool lineSensor[4];
 
 
 enum Sensor { SIDE_LEFT, SHORT_LEFT, TOP_LEFT, TOP_MID, TOP_RIGHT, SHORT_RIGHT, SIDE_RIGHT };
 
-extern volatile bool sensorReadings[7];
+extern volatile bool irSensor[7];
 extern volatile bool startSignal;  // Creo que debe ser volatile si le trato con interrupt
 extern bool dipSwitchPin[4];  // de A a D
 
@@ -66,35 +73,49 @@ extern Motor leftMotor;
 extern Motor rightMotor;
 
 enum State {
-    WAIT_ON_START,
-    INITIAL_MOVEMENT,
-    MID_SENSOR_CHECK,
-    MID_MOVE,
-    TOP_SENSORS_CHECK,
-    TOP_LEFT_MOVE,
-    TOP_RIGHT_MOVE,
-    SIDE_SENSORS_CHECK,
-    SIDE_LEFT_MOVE,
-    SIDE_RIGHT_MOVE,
-    BOUND_MOVE,
-    DEFAULT_ACTION_STATE
+    IDLE,
+    FORWARD,
+    BACKWARD,
+    TURN_RIGHT,
+    TURN_LEFT,
+    FORWARD_LEFT,
+    FORWARD_RIGHT,
+    ATTACK,
+    INITIAL_MOVEMENT
 };
 
 extern volatile State currentState;
 
-extern QueueHandle_t imuDataQueue;
-extern QueueHandle_t cmdQueue;
+//TASK HANDLERS
+TaskHandle_t imuTaskHandle;
+TaskHandle_t stateMachineTaskHandle;
+TaskHandle_t lineSensorTaskHandle;
 
-extern TaskHandle_t imuTaskHandle;
+//MUTEXS
+SemaphoreHandle_t gyroDataMutex;
+
+// QUEUESS
+QueueHandle_t imuDataQueue;
+QueueHandle_t cmdQueue;
 
 extern IMU imu;
 
+extern int currentAngle;
 extern int desiredAngle;
 
+void stateMachineTask(void *param);
 void imuTask(void *param);
-void mainTask(void *param);
+void lineSensorTask(void *param);
+
 void handleState();
 void changeState(State newState);
+
+#define ADC_WIDTH ADC_WIDTH_BIT_12
+
+void lineSensorsInit();
+int readLineSensorFront(adc1_channel_t channel);
+int readLineSensorBack(adc2_channel_t channel);
+
 
 // Web server related functions
 extern AsyncWebServer server;

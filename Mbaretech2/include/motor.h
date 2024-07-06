@@ -72,7 +72,7 @@ class Motor{
             digitalWrite(A0pin,1);
             digitalWrite(A1pin,0);
         }
-        void reverse(uint32_t speed){
+        void backward(uint32_t speed){
             setSpeed(speed);
             digitalWrite(A0pin,0);
             digitalWrite(A1pin,1);
