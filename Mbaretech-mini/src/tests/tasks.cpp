@@ -34,7 +34,6 @@ bool elapsedTime(TickType_t duration) {
 bool checkRotation(int rotationAngle){
     static int initialAngle = 0;
     int currentAngleRotation = 0;
-
     if (xSemaphoreTake(gyroDataMutex, portMAX_DELAY) == pdTRUE) {
         if (initialAngle == 0) {
             initialAngle = currentAngle;  // Initialize initialAngle only once
@@ -62,37 +61,42 @@ void motorTask(void *param) {
     State currentState;
     currentState = IDLE;
 
-    int forwardSpeed = 50;
-
+    int speed = 10;
     while (true) {
+        // Serial.print(sensorReadings[0]);
+        // Serial.print('\t');
+        // Serial.print(sensorReadings[1]);
+        // Serial.print('\t');
+        // Serial.print(sensorReadings[2]);
+        // Serial.print('\n');
+
         switch (currentState){
             case FORWARD:
-                    leftMotor.forward(10);
-                    rightMotor.forward(10);
+                rightMotor.forward(0);
+                leftMotor.forward(0);
 
-                if(startSignal){
+                // rightMotor.writePulse(rightMotor.minForwardPulse);
+                // leftMotor.writePulse(leftMotor.minForwardPulse);
+
+                if(!startSignal){
                     currentState = IDLE;
                 }
-                else if(elapsedTime(1500)){
+                else if(elapsedTime(1000)){
                     currentState = BACKWARD;
-                    leftMotor.brake();
-                    rightMotor.brake();
                 }
                 break;
             
             case BACKWARD:
+                rightMotor.backward(0);
+                leftMotor.backward(0);
+                // rightMotor.writePulse(rightMotor.minBackwarPulse);
+                // leftMotor.writePulse(leftMotor.minBackwarPulse);
 
-                leftMotor.backward(10);
-                rightMotor.backward(10);
-
-
-                if(startSignal){
+                if(!startSignal){
                     currentState = IDLE;
                 }
-                else if(elapsedTime(1500)){
+                else if(elapsedTime(1000)){
                     currentState = FORWARD;
-                    leftMotor.brake();
-                    rightMotor.brake();
                 }
                 break;
             
@@ -102,7 +106,36 @@ void motorTask(void *param) {
                 if(startSignal){
                     currentState = FORWARD;
                 }
-                
+                break;
+
+            case TURN_LEFT:
+                rightMotor.forward(0);
+                leftMotor.backward(0);
+
+                if(!startSignal){
+                    currentState = IDLE;
+                }
+                else if(checkRotation(85)){
+                    leftMotor.brake();
+                    rightMotor.brake();
+                    currentState = FORWARD;
+                }
+                break;
+
+                case TURN_RIGHT:
+                rightMotor.backward(0);
+                leftMotor.forward(0);
+
+                if(!startSignal){
+                    currentState = IDLE;
+                }
+                else if(checkRotation(85)){
+                    leftMotor.brake();
+                    rightMotor.brake();
+                    currentState = FORWARD;
+                }
+                break;
+
         }
     vTaskDelay(pdMS_TO_TICKS(10));
     }

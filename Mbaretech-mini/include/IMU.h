@@ -11,6 +11,7 @@
 #define SCL_PIN 9
 #define SDA_PIN 10
 #define INT_PIN 11
+
 class IMU{
   public:
     MPU6050 mpu;

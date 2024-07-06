@@ -5,8 +5,8 @@ volatile bool sensorReadings[7];
 volatile bool startSignal = false; // Creo que debe ser volatile si le trato con interrupt
 bool dipSwitchPin[4];  // de A a D
 
-Motor leftMotor(PWM_A);
-Motor rightMotor(PWM_B);
+Motor leftMotor(PWM_B,FORWARD_MAX_LEFT,FORWARD_MIN_LEFT,BACKWARD_MAX_LEFT,BACKWARD_MIN_LEFT);
+Motor rightMotor(PWM_A,FORWARD_MAX_RIGHT,FORWARD_MIN_RIGHT,BACKWARD_MAX_RIGHT,BACKWARD_MIN_RIGHT);
 
 volatile State currentState = WAIT_ON_START;
 
@@ -28,9 +28,9 @@ SemaphoreHandle_t gyroDataMutex;
 
 
 //INTERRUPS
-void IR1_ISR() { sensorReadings[0] = digitalRead(IR1); }  // 0 esta sensor izquierdo le llamo short right
-void IR2_ISR() { sensorReadings[1] = digitalRead(IR2); }  // 1 medio no problem
-void IR3_ISR() { sensorReadings[2] = digitalRead(IR3); }  // 2 esta sensor derecho le llamo short left
+void IRAM_ATTR IR1_ISR() { sensorReadings[0] = !digitalRead(IR1); }  // 0 esta sensor izquierdo le llamo short right
+void IRAM_ATTR IR2_ISR() { sensorReadings[1] = !digitalRead(IR2); }  // 1 medio no problem
+void IRAM_ATTR IR3_ISR() { sensorReadings[2] = !digitalRead(IR3); }  // 2 esta sensor derecho le llamo short left
 
 void IRAM_ATTR KS_ISR(){startSignal = digitalRead(START_PIN);};
 
@@ -48,13 +48,13 @@ int currentAngle;
 IMU imu;
 
 void setup() {
-
     esp_efuse_write_field_cnt(ESP_EFUSE_VDD_SPI_FORCE, 1); 
     // Initialize Serial communication
     Serial.begin(115200);
     rightMotor.begin();
     leftMotor.begin();
-    imu.begin();
+
+   // imu.begin();
     // IR sensors
     pinMode(IR1, INPUT);
     pinMode(IR2, INPUT);
