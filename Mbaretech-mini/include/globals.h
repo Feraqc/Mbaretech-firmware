@@ -41,9 +41,9 @@
 //MOTORB
 #define PWM_B 13
 
-enum Sensor { SHORT_RIGHT, TOP_MID, SHORT_LEFT};
+enum Sensor { RIGHT, MID, LEFT};
 
-extern volatile bool sensorReadings[7];
+extern volatile bool irSensor[3];
 extern volatile bool startSignal;  // Creo que debe ser volatile si le trato con interrupt
 extern bool dipSwitchPin[4];  // de A a D
 
@@ -54,20 +54,6 @@ void IR3_ISR();
 
 extern Motor leftMotor;
 extern Motor rightMotor;
-
-enum State {
-    WAIT_ON_START,
-    INITIAL_MOVEMENT,
-    MID_SENSOR_CHECK,
-    MID_MOVE,
-    TOP_SENSORS_CHECK,
-    TOP_LEFT_MOVE,
-    TOP_RIGHT_MOVE,
-    SEARCH,
-    BOUND_MOVE
-};
-
-extern volatile State currentState;
 
 extern QueueHandle_t imuDataQueue;
 extern QueueHandle_t cmdQueue;
@@ -81,8 +67,8 @@ extern int currentAngle;
 
 void imuTask(void *param);
 void mainTask(void *param);
-void handleState();
-void changeState(State newState);
+//void handleState();
+//void changeState(State newState);
 
 // Web server related functions
 extern AsyncWebServer server;

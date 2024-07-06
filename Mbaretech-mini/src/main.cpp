@@ -1,18 +1,12 @@
 #include "globals.h"  // Include the header file
 
 // Define the shared variables
-volatile bool sensorReadings[7];
+volatile bool irSensor[3];
 volatile bool startSignal = false; // Creo que debe ser volatile si le trato con interrupt
 bool dipSwitchPin[4];  // de A a D
 
 Motor leftMotor(PWM_B,FORWARD_MAX_LEFT,FORWARD_MIN_LEFT,BACKWARD_MAX_LEFT,BACKWARD_MIN_LEFT);
 Motor rightMotor(PWM_A,FORWARD_MAX_RIGHT,FORWARD_MIN_RIGHT,BACKWARD_MAX_RIGHT,BACKWARD_MIN_RIGHT);
-
-volatile State currentState = WAIT_ON_START;
-
-// QUEUE
-QueueHandle_t imuDataQueue;
-QueueHandle_t cmdQueue;
 
 //TASK HANDLERS
 TaskHandle_t imuTaskHandle;
@@ -28,9 +22,9 @@ SemaphoreHandle_t gyroDataMutex;
 
 
 //INTERRUPS
-void IRAM_ATTR IR1_ISR() { sensorReadings[0] = !digitalRead(IR1); }  // 0 esta sensor izquierdo le llamo short right
-void IRAM_ATTR IR2_ISR() { sensorReadings[1] = !digitalRead(IR2); }  // 1 medio no problem
-void IRAM_ATTR IR3_ISR() { sensorReadings[2] = !digitalRead(IR3); }  // 2 esta sensor derecho le llamo short left
+void IRAM_ATTR IR1_ISR() { irSensor[0] = !digitalRead(IR1); }  // 0 esta sensor izquierdo le llamo short right
+void IRAM_ATTR IR2_ISR() { irSensor[1] = !digitalRead(IR2); }  // 1 medio no problem
+void IRAM_ATTR IR3_ISR() { irSensor[2] = !digitalRead(IR3); }  // 2 esta sensor derecho le llamo short left
 
 void IRAM_ATTR KS_ISR(){startSignal = digitalRead(START_PIN);};
 
@@ -54,7 +48,7 @@ void setup() {
     rightMotor.begin();
     leftMotor.begin();
 
-   // imu.begin();
+    imu.begin();
     // IR sensors
     pinMode(IR1, INPUT);
     pinMode(IR2, INPUT);
@@ -63,9 +57,9 @@ void setup() {
     pinMode(START_PIN, INPUT);
     attachInterrupt(digitalPinToInterrupt(START_PIN), KS_ISR, CHANGE);
 
-    attachInterrupt(digitalPinToInterrupt(IR1), IR1_ISR, CHANGE);
-    attachInterrupt(digitalPinToInterrupt(IR2), IR2_ISR, CHANGE);
-    attachInterrupt(digitalPinToInterrupt(IR3), IR3_ISR, CHANGE);
+    attachInterrupt(digitalPinToInterrupt(IR1), IR1_ISR, FALLING);
+    attachInterrupt(digitalPinToInterrupt(IR2), IR2_ISR, FALLING);
+    attachInterrupt(digitalPinToInterrupt(IR3), IR3_ISR, FALLING);
 
     // Start pins
     pinMode(START_PIN, INPUT);
@@ -74,9 +68,6 @@ void setup() {
     pinMode(DIPC, INPUT);
     pinMode(DIPD, INPUT);
 
-    // Create the queues
-    imuDataQueue = xQueueCreate(10, sizeof(float));  // tamanho arbitrario
-    cmdQueue = xQueueCreate(10, sizeof(float));
     gyroDataMutex = xSemaphoreCreateMutex();
 
     xTaskCreate(motorTask, "motorTask", 4096, NULL, 1, &motorTaskHandle);
@@ -107,98 +98,90 @@ void setup() {
 }
 
 
-void mainTask(void *pvParameters) {
-    // Main loop of the FreeRTOS task
-    while (true) {
-        handleState();
-        vTaskDelay(pdMS_TO_TICKS(100));  // Delay for 100 ms
-    }
-}
+// void handleState() {
+//     switch (currentState) {
+//         case WAIT_ON_START:
+//             Serial.println("State: WAIT_ON_START");
+//             if (digitalRead(START_PIN)) {
+//                 if (digitalRead(DIPA)) {  // Se puede cambiar a otro dip segun
+//                                           // necesitemos para estrategia
+//                     changeState(INITIAL_MOVEMENT);
+//                 }
+//                 else {
+//                     sensorReadings[0] = digitalRead(IR1);
+//                     sensorReadings[1] = digitalRead(IR2);
+//                     sensorReadings[2] = digitalRead(IR3);
+//                 }
+//             }
+//             else {
+//                 // TODO: Motor OFF
+//             }
+//             break;
 
-void handleState() {
-    switch (currentState) {
-        case WAIT_ON_START:
-            Serial.println("State: WAIT_ON_START");
-            if (digitalRead(START_PIN)) {
-                if (digitalRead(DIPA)) {  // Se puede cambiar a otro dip segun
-                                          // necesitemos para estrategia
-                    changeState(INITIAL_MOVEMENT);
-                }
-                else {
-                    sensorReadings[0] = digitalRead(IR1);
-                    sensorReadings[1] = digitalRead(IR2);
-                    sensorReadings[2] = digitalRead(IR3);
-                }
-            }
-            else {
-                // TODO: Motor OFF
-            }
-            break;
+//         case INITIAL_MOVEMENT:
+//             Serial.println("State: INITIAL_MOVEMENT");
+//             // Ver como separar los movimientos iniciales
+//             // No necesita break
 
-        case INITIAL_MOVEMENT:
-            Serial.println("State: INITIAL_MOVEMENT");
-            // Ver como separar los movimientos iniciales
-            // No necesita break
+//         case MID_SENSOR_CHECK:
+//             Serial.println("State: MID_SENSOR_CHECK");
+//             if (sensorReadings[TOP_MID]) {
+//                 changeState(MID_MOVE);
+//             }
+//             else {
+//                 changeState(TOP_SENSORS_CHECK); // En realidad no hay top pero si no lee el medio se usa como top
+//             }
+//             break;
 
-        case MID_SENSOR_CHECK:
-            Serial.println("State: MID_SENSOR_CHECK");
-            if (sensorReadings[TOP_MID]) {
-                changeState(MID_MOVE);
-            }
-            else {
-                changeState(TOP_SENSORS_CHECK); // En realidad no hay top pero si no lee el medio se usa como top
-            }
-            break;
+//         case MID_MOVE:
+//             Serial.println("State: MID_MOVE");
+//             // TODO: Do movement
+//             // IF FRONTLEFT AND FRONTRIGHT --> 100%
+//             // else if FRONTLEFT --> shortLeft
+//             // else if FRONTRIGHT --> shortRight
+//             // else ---> 30% o algo asi
+//             changeState(MID_SENSOR_CHECK);
+//             break;
 
-        case MID_MOVE:
-            Serial.println("State: MID_MOVE");
-            // TODO: Do movement
-            // IF FRONTLEFT AND FRONTRIGHT --> 100%
-            // else if FRONTLEFT --> shortLeft
-            // else if FRONTRIGHT --> shortRight
-            // else ---> 30% o algo asi
-            changeState(MID_SENSOR_CHECK);
-            break;
+//         case TOP_SENSORS_CHECK:
+//             Serial.println("State: TOP_SENSOR_CHECK");
+//             if (sensorReadings[SHORT_LEFT]) {
+//                 changeState(TOP_LEFT_MOVE);
+//             }
+//             else if (sensorReadings[SHORT_RIGHT]) {
+//                 changeState(TOP_RIGHT_MOVE);
+//             }
+//             else {
+//                 changeState(SEARCH);
+//             }
+//             break;
 
-        case TOP_SENSORS_CHECK:
-            Serial.println("State: TOP_SENSOR_CHECK");
-            if (sensorReadings[SHORT_LEFT]) {
-                changeState(TOP_LEFT_MOVE);
-            }
-            else if (sensorReadings[SHORT_RIGHT]) {
-                changeState(TOP_RIGHT_MOVE);
-            }
-            else {
-                changeState(SEARCH);
-            }
-            break;
+//         case TOP_LEFT_MOVE:
+//             Serial.println("State: TOP_LEFT_MOVE");
+//             // TODO: LeftTurn45
+//             changeState(MID_SENSOR_CHECK);
+//             break;
 
-        case TOP_LEFT_MOVE:
-            Serial.println("State: TOP_LEFT_MOVE");
-            // TODO: LeftTurn45
-            changeState(MID_SENSOR_CHECK);
-            break;
+//         case TOP_RIGHT_MOVE:
+//             Serial.println("State: TOP_RIGHT_MOVE");
+//             // TODO: RightTurn45
+//             changeState(MID_SENSOR_CHECK);
+//             break;
 
-        case TOP_RIGHT_MOVE:
-            Serial.println("State: TOP_RIGHT_MOVE");
-            // TODO: RightTurn45
-            changeState(MID_SENSOR_CHECK);
-            break;
+//         case SEARCH:
+//             Serial.println("State: DEFAULT_ACTION_STATE");
+//             // TODO: Aca es un dependiendo del switch por ejemplo
+//             // para saber que queremos que haga por default
+//             // puede ser turco, ir para delante, quedarse quieto
+//             changeState(MID_SENSOR_CHECK);  // mientras le pongo que mire sensores nomas
 
-        case SEARCH:
-            Serial.println("State: DEFAULT_ACTION_STATE");
-            // TODO: Aca es un dependiendo del switch por ejemplo
-            // para saber que queremos que haga por default
-            // puede ser turco, ir para delante, quedarse quieto
-            changeState(MID_SENSOR_CHECK);  // mientras le pongo que mire sensores nomas
+//         default:
+//             Serial.println("State: UNKNOWN");
+//             break;
+//     }
+// }
 
-        default:
-            Serial.println("State: UNKNOWN");
-            break;
-    }
-}
-
-void changeState(State newState) { currentState = newState; }
+// void changeState(State newState) { currentState = newState; }
 
 void loop() {} //Empty loop since I am using freertos
 

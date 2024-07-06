@@ -12,12 +12,12 @@
 #define MAX_WIDTH 1920
 
 #define FORWARD_MIN_RIGHT  1425
-#define FORWARD_MIN_LEFT  1388
+#define FORWARD_MIN_LEFT  1406
 #define FORWARD_MAX_RIGHT  1080
 #define FORWARD_MAX_LEFT  1080
 
-#define BACKWARD_MIN_RIGHT 1585
-#define BACKWARD_MIN_LEFT 1705
+#define BACKWARD_MIN_RIGHT 1565
+#define BACKWARD_MIN_LEFT 1580
 #define BACKWARD_MAX_RIGHT 1965
 #define BACKWARD_MAX_LEFT 1965
 
@@ -51,17 +51,7 @@ class Motor{
             ESP32PWM::allocateTimer(3);
             motor.setPeriodHertz(FREQUENCY);
             motor.attach(pwmPin,1080,1920);
-            delay(100);
-            for(int i=1500;i<1650;i+=5){
-                motor.writeMicroseconds(i);
-                Serial.println(i);
-                delay(1500);
-            }
-            for(int i=1500;i>1350;i-=5){
-                motor.writeMicroseconds(i);
-                Serial.println(i);
-                delay(1500);
-            }
+            motor.writeMicroseconds(1500);
         }
 
         void setSpeed(int speed) {
@@ -83,11 +73,6 @@ class Motor{
             currentSpeed = 1500;
         }
 
-        void writePulse(int duration){
-            digitalWrite(pwmPin,1);
-            delayMicroseconds(duration);
-            digitalWrite(pwmPin,0);
-        }
 
 
 };
