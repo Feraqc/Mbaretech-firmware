@@ -10,15 +10,17 @@
 
 //MOTOR A
 #define PWM_A 48
-#define PIN_A0 0
+#define PIN_A0 47
 #define PIN_A1 45
 #define CHANNEL_LEFT LEDC_CHANNEL_1
 
 //MOTORB
-#define PWM_B 35
+#define PWM_B 35 // En el diagrama esta al reves, ignorar
 #define PIN_B0 36
 #define PIN_B1 37
 #define CHANNEL_RIGHT LEDC_CHANNEL_0
+
+#define MAX_DUTY_VALUE 990
 
 class Motor{
     public:
@@ -62,20 +64,21 @@ class Motor{
         }
 
         void setSpeed(uint32_t speed){
+            speed = constrain(speed,1,MAX_DUTY_VALUE); // Datasheet dice 98%, le capeo a casi 97% ~ 990
             ledc_set_duty(LEDC_LOW_SPEED_MODE,pwmChannel,speed);
             ledc_update_duty(LEDC_LOW_SPEED_MODE,pwmChannel);
-            currentSpeed = speed;
+            //currentSpeed = speed;
         }
 
         void forward(uint32_t speed){
-            setSpeed(speed);
             digitalWrite(A0pin,1);
             digitalWrite(A1pin,0);
+            setSpeed(speed);
         }
         void backward(uint32_t speed){
-            setSpeed(speed);
             digitalWrite(A0pin,0);
             digitalWrite(A1pin,1);
+            setSpeed(speed);
         }
         void brake(){
             digitalWrite(A0pin,0);

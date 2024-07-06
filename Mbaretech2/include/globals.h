@@ -81,31 +81,29 @@ enum State {
     FORWARD_LEFT,
     FORWARD_RIGHT,
     ATTACK,
+    BRAKE,
     INITIAL_MOVEMENT
 };
 
 extern volatile State currentState;
 
 //TASK HANDLERS
-TaskHandle_t imuTaskHandle;
-TaskHandle_t stateMachineTaskHandle;
-TaskHandle_t lineSensorTaskHandle;
+extern TaskHandle_t imuTaskHandle;
+extern TaskHandle_t stateMachineTaskHandle;
+extern TaskHandle_t lineSensorTaskHandle;
+
+// TASKS
+void stateMachineTask(void *param);
+void imuTask(void *param);
+void lineSensorTask(void *param);
 
 //MUTEXS
-SemaphoreHandle_t gyroDataMutex;
-
-// QUEUESS
-QueueHandle_t imuDataQueue;
-QueueHandle_t cmdQueue;
+extern SemaphoreHandle_t gyroDataMutex;
 
 extern IMU imu;
 
 extern int currentAngle;
 extern int desiredAngle;
-
-void stateMachineTask(void *param);
-void imuTask(void *param);
-void lineSensorTask(void *param);
 
 void handleState();
 void changeState(State newState);

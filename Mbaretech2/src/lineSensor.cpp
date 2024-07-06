@@ -1,3 +1,4 @@
+#ifdef RUN_LINE_SENSOR
 #include "globals.h"
 #include <driver/adc.h>
 
@@ -30,3 +31,4 @@ bool checkLineSensor(int measurement,int threshold){
   else{counter = 0;}
   return (counter >=10); 
 }
+#endif
