@@ -11,6 +11,15 @@ int currentAngle;
 int desiredAngle;
 bool lineSensor[4];
 
+// TASK HANDLE
+TaskHandle_t imuTaskHandle;
+TaskHandle_t stateMachineTaskHandle;
+TaskHandle_t lineSensorTaskHandle;
+
+// MUTEXES
+SemaphoreHandle_t gyroDataMutex;
+
+
 //VOLATILE VARIABLES
 volatile State currentState = IDLE;
 volatile bool irSensor[7];
@@ -29,6 +38,9 @@ void  IRAM_ATTR IR7_ISR() { irSensor[6] = digitalRead(IR7); }
 void  IRAM_ATTR encoderLeftISR(){encoderLeftCounter++;}
 void  IRAM_ATTR encoderRightISR(){encoderRightCounter++;}
 
+void IRAM_ATTR KS_ISR(){startSignal = digitalRead(START_PIN);};
+
+
 
 // Create AsyncWebServer instance on port 80
 AsyncWebServer server(80);
@@ -42,13 +54,15 @@ void setup() {
     esp_efuse_write_field_cnt(ESP_EFUSE_VDD_SPI_FORCE, 1); 
     // Initialize Serial communication
     Serial.begin(115200);
-    imu.begin();
+    //imu.begin();
     // Motors
     rightMotor.begin();
     leftMotor.begin();
 
+    #ifdef RUN_LINE_SENSOR
     // Line sensors 
     lineSensorsInit();
+    #endif
 
     // IR Sensors
     pinMode(IR1, INPUT);
@@ -67,6 +81,8 @@ void setup() {
     attachInterrupt(digitalPinToInterrupt(IR6), IR6_ISR, CHANGE);
     attachInterrupt(digitalPinToInterrupt(IR7), IR7_ISR, CHANGE);
 
+    attachInterrupt(digitalPinToInterrupt(START_PIN), KS_ISR, CHANGE);
+
     // DIPS
     pinMode(DIPA, INPUT);
     pinMode(DIPB, INPUT);
@@ -82,22 +98,14 @@ void setup() {
     attachInterrupt(digitalPinToInterrupt(ENCODER_LEFT), encoderLeftISR, RISING);
     attachInterrupt(digitalPinToInterrupt(ENCODER_RIGHT), encoderRightISR, RISING);
 
-    // Create the queues
-    imuDataQueue = xQueueCreate(10, sizeof(float));  // tamanho arbitrario
-    cmdQueue = xQueueCreate(10, sizeof(float));
-
-    if (imuDataQueue == NULL) {
-        Serial.println("Failed to create sensor data queue");
-        while (true);  // Halt the program
-    }
-    if (cmdQueue == NULL) {
-        Serial.println("Failed to create command queue");
-        while (true);  // Halt the program
-    }
+    // MUTEX
+    gyroDataMutex = xSemaphoreCreateMutex();
 
     xTaskCreate(stateMachineTask, "stateMachineTask", 4096, NULL, 1, &stateMachineTaskHandle);
-    xTaskCreate(imuTask, "imuTask", 4096, NULL, 1, &imuTaskHandle);
+    //xTaskCreate(imuTask, "imuTask", 4096, NULL, 1, &imuTaskHandle);
+    #ifdef RUN_LINE_SENSOR
     xTaskCreate(lineSensorTask, "lineSensorTask", 4096, NULL, 1, &lineSensorTaskHandle);
+    #endif
 
     // Create tasks conditionally
     #ifndef RUN_GYRO_TEST
@@ -106,7 +114,9 @@ void setup() {
     #ifndef RUN_WIFI_SENSORS_TEST
     #ifndef RUN_DRIVER_TEST
     #ifndef RUN_LINE_SENSOR_TEST
-    //xTaskCreate(mainTask, "MainTask", 2048, NULL, 1, NULL);
+    #ifndef RUN_TASK_TEST
+    xTaskCreate(mainTask, "MainTask", 2048, NULL, 1, NULL);
+    #endif  // RUN_TASK_TEST
     #endif  // RUN_LINE_SENSOR_TEST
     #endif  // RUN_IR_SENSOR_TEST
     #endif  // RUN_GYRO_TEST

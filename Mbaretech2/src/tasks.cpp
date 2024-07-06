@@ -22,6 +22,8 @@ bool elapsedTime(TickType_t duration) {
         firstCall = false;
     }
 
+    //Serial.println(currentTime - startTime);
+
     if ((currentTime - startTime) >= duration) {
         startTime = currentTime; 
         firstCall = true;
@@ -49,19 +51,21 @@ bool checkRotation(int rotationAngle){
 }
 
 void stateMachineTask(void *param) {
+    bool counter = 0;
     while (true) {
-
         switch (currentState){
             case FORWARD:
-                rightMotor.forward(0);
-                leftMotor.forward(0);
+                Serial.println("State forward");
+                rightMotor.forward(410);
+                leftMotor.forward(410);
 
                 if(!startSignal){ // KILLSWITCH
                     currentState = IDLE;
                 }
                 else if(elapsedTime(1000)){ //MAXIMO TIEMPO DE AVANCE
-                    currentState = BACKWARD;
+                    currentState = BRAKE;
                 }
+                /* controlar con macro
                 else if(irSensor[0]){ // 
                     currentState = TURN_LEFT;
                     desiredAngle = 90;
@@ -82,11 +86,36 @@ void stateMachineTask(void *param) {
                     currentState = TURN_RIGHT;
                     desiredAngle = 90;
                 }
+                */
                 break;
+
+            case BRAKE:
+                Serial.println("State brake");
+                leftMotor.brake();
+                rightMotor.brake();
+                if (!startSignal){
+                    currentState = IDLE;
+                }
+                else if(elapsedTime(1000)){
+                    counter = !counter;
+                    if (counter) {
+                        Serial.print("Counter is");
+                        Serial.println(counter);
+                        currentState = BACKWARD;
+                    }
+                    else {
+                        Serial.print("Counter is");
+                        Serial.println(counter);
+                        currentState = FORWARD;
+                    }
+                }
+                break;
+
             
             case BACKWARD:
-                rightMotor.backward(0);
-                leftMotor.backward(0);
+                Serial.println("State backward");
+                rightMotor.backward(410);
+                leftMotor.backward(410);
                 // rightMotor.writePulse(rightMotor.minBackwarPulse);
                 // leftMotor.writePulse(leftMotor.minBackwarPulse);
 
@@ -94,14 +123,17 @@ void stateMachineTask(void *param) {
                     currentState = IDLE;
                 }
                 else if(elapsedTime(1000)){
-                    currentState = TURN_RIGHT;
+                    //currentState = TURN_RIGHT;
+                    currentState = BRAKE;
                 }
                 break;
             
             case IDLE:
                 leftMotor.brake();
                 rightMotor.brake();
+                Serial.println(startSignal);
                 if(startSignal){
+                    Serial.println("Changing state");
                     currentState = FORWARD;
                 }
                 break;
