@@ -41,7 +41,7 @@
 //MOTORB
 #define PWM_B 13
 
-enum Sensor { RIGHT, MID, LEFT};
+enum Sensor { LEFT, MID, RIGHT};
 
 extern volatile bool irSensor[3];
 extern volatile bool startSignal;  // Creo que debe ser volatile si le trato con interrupt

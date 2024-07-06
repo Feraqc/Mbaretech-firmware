@@ -57,9 +57,9 @@ void setup() {
     pinMode(START_PIN, INPUT);
     attachInterrupt(digitalPinToInterrupt(START_PIN), KS_ISR, CHANGE);
 
-    attachInterrupt(digitalPinToInterrupt(IR1), IR1_ISR, FALLING);
-    attachInterrupt(digitalPinToInterrupt(IR2), IR2_ISR, FALLING);
-    attachInterrupt(digitalPinToInterrupt(IR3), IR3_ISR, FALLING);
+    attachInterrupt(digitalPinToInterrupt(IR1), IR1_ISR, CHANGE);
+    attachInterrupt(digitalPinToInterrupt(IR2), IR2_ISR, CHANGE);
+    attachInterrupt(digitalPinToInterrupt(IR3), IR3_ISR, CHANGE);
 
     // Start pins
     pinMode(START_PIN, INPUT);
@@ -71,7 +71,7 @@ void setup() {
     gyroDataMutex = xSemaphoreCreateMutex();
 
     xTaskCreate(motorTask, "motorTask", 4096, NULL, 1, &motorTaskHandle);
-    xTaskCreate(imuTask, "imuTask", 4096, NULL, 1, &imuTaskHandle);
+   // xTaskCreate(imuTask, "imuTask", 4096, NULL, 1, &imuTaskHandle);
 
 
     #ifdef RUN_WIFI_SENSORS_TEST
