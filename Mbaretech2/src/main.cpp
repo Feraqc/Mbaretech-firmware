@@ -40,7 +40,7 @@ void  IRAM_ATTR encoderRightISR(){encoderRightCounter++;}
 
 void IRAM_ATTR KS_ISR(){startSignal = digitalRead(START_PIN);};
 
-//volatile State currentState;
+volatile State currentState;
 
 
 // Create AsyncWebServer instance on port 80
@@ -74,6 +74,7 @@ void setup() {
     pinMode(IR6, INPUT);
     pinMode(IR7, INPUT);
 
+    /*
     attachInterrupt(digitalPinToInterrupt(IR1), IR1_ISR, CHANGE);
     attachInterrupt(digitalPinToInterrupt(IR2), IR2_ISR, CHANGE);
     attachInterrupt(digitalPinToInterrupt(IR3), IR3_ISR, CHANGE);
@@ -81,6 +82,7 @@ void setup() {
     attachInterrupt(digitalPinToInterrupt(IR5), IR5_ISR, CHANGE);
     attachInterrupt(digitalPinToInterrupt(IR6), IR6_ISR, CHANGE);
     attachInterrupt(digitalPinToInterrupt(IR7), IR7_ISR, CHANGE);
+    */
 
     attachInterrupt(digitalPinToInterrupt(START_PIN), KS_ISR, CHANGE);
 
@@ -101,8 +103,9 @@ void setup() {
 
     // MUTEX
    // gyroDataMutex = xSemaphoreCreateMutex();
-
+    #if defined(RUN_MOVEMENTS_TEST) || defined(RUN_TASK_TEST)
     xTaskCreate(stateMachineTask, "stateMachineTask", 4096, NULL, 1, &stateMachineTaskHandle);
+    #endif 
     //xTaskCreate(imuTask, "imuTask", 4096, NULL, 1, &imuTaskHandle);
     #ifdef RUN_LINE_SENSOR
     //xTaskCreate(lineSensorTask, "lineSensorTask", 4096, NULL, 1, &lineSensorTaskHandle);
@@ -282,7 +285,7 @@ void mainTask(void *pvParameters) {
 //     }
 // }
 
-//void changeState(State newState) { currentState = newState; }
+void changeState(State newState) { currentState = newState; }
 
 void loop() {}
 

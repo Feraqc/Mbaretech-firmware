@@ -22,26 +22,8 @@ bool elapsedTime(TickType_t duration) {
 }
 
 void stateMachineTask(void *param) {
-    enum State {
-        IDLE,
-        FORWARD,
-        BACKWARD,
-        TURN_RIGHT,
-        TURN_LEFT,
-        FORWARD_LEFT,
-        FORWARD_RIGHT,
-        ATTACK,
-        BRAKE,
-        INITIAL_MOVEMENT,
-        TURN_90_LEFT,
-        TURN_90_RIGHT,
-        TURN_45_LEFT,
-        TURN_45_RIGHT,
-        TURN_22_LEFT,
-        TURN_22_RIGHT
-    };
 
-    State currentState = FORWARD;
+    State currentState = FORWARD_RIGHT;
 
     bool counter = 0;
     TickType_t lastLeft = 0;
@@ -56,31 +38,11 @@ void stateMachineTask(void *param) {
                     rightMotor.forward(40);
                     leftMotor.forward(40);
 
-                    if (elapsedTime(250)) {  // MAXIMO TIEMPO DE AVANCE  //75 es turco
+                    if (elapsedTime(
+                            250)) {  // MAXIMO TIEMPO DE AVANCE  //75 es turco
                         currentState = BRAKE;
                     }
-                    /* controlar con macro
-                    else if(irSensor[0]){ //
-                        currentState = TURN_LEFT;
-                        desiredAngle = 90;
-                    }
-                    else if(irSensor[1]){ //
-                        currentState = TURN_LEFT;
-                        desiredAngle = 90;
-                    }
-                    else if(irSensor[2]){
-                        currentState = TURN_LEFT;
-                        desiredAngle = 90;
-                    }
-                    else if(irSensor[3]){
-                        currentState = TURN_RIGHT;
-                        desiredAngle = 90;
-                    }
-                    else if(irSensor[4]){
-                        currentState = TURN_RIGHT;
-                        desiredAngle = 90;
-                    }
-                    */
+
                     break;
 
                 case BRAKE:
@@ -92,7 +54,7 @@ void stateMachineTask(void *param) {
                     }
                     else if (elapsedTime(2000)) {
                         counter = false;
-                        //counter = !counter;
+                        // counter = !counter;
                         if (counter) {
                             Serial.print("Counter is");
                             Serial.println(counter);
@@ -128,51 +90,15 @@ void stateMachineTask(void *param) {
                     Serial.println(startSignal);
                     if (startSignal) {
                         Serial.println("Changing state");
-                        currentState = TURN_LEFT;
+                        // currentState = TURN_LEFT;
                     }
                     break;
-                    /*
-                    case TURN_LEFT:
-                        currMove = xTaskGetTickCount();
-                        if (currMove - lastLeft >= 2000)
-                        { // 2 * delay
-                            Serial.println("Entered turn left");
-                            rightMotor.forward(50);
-                            leftMotor.backward(50);
-                            lastLeft = xTaskGetTickCount();
-                        }
 
-                        if(!startSignal){
-                            currentState = IDLE;
-                        }
-                        else if(elapsedTime(1000)){
-                            currentState = TURN_RIGHT;
-                        }
-                        break;
-
-                    case TURN_RIGHT:
-                        currMove = xTaskGetTickCount();
-                        if (currMove - lastRight >= 2000)
-                        { // 2 * delay
-                            Serial.println("Entered turn right");
-                            rightMotor.backward(50);
-                            leftMotor.forward(50);
-                            lastRight = xTaskGetTickCount();
-                        }
-
-                        if(!startSignal){
-                            currentState = IDLE;
-                        }
-                        else if(elapsedTime(1000)){
-                            currentState = TURN_LEFT;
-                        }
-                        break;
-                    */
-                case TURN_90_RIGHT:
+                case TURN_RIGHT_90:
                     Serial.println("TURN");
-                    rightMotor.backward(60);
-                    leftMotor.forward(60);
-                    while (!elapsedTime(70)) {
+                    rightMotor.backward(TURN_RIGHT_SPEED);
+                    leftMotor.forward(TURN_RIGHT_SPEED);
+                    while (!elapsedTime(TURN_RIGHT_90_DELAY)) {
                     }
                     Serial.println("BRAKE");
                     rightMotor.brake();
@@ -181,11 +107,25 @@ void stateMachineTask(void *param) {
                     }
                     break;
 
-                case TURN_90_LEFT:
+                case TURN_LEFT_90:
                     Serial.println("TURN");
-                    rightMotor.forward(60);
-                    leftMotor.backward(60);
-                    while (!elapsedTime(70)) {
+                    rightMotor.forward(TURN_LEFT_SPEED);
+                    leftMotor.backward(TURN_LEFT_SPEED);
+                    while (!elapsedTime(TURN_LEFT_90_DELAY)) {
+                    }
+                    Serial.println("BRAKE");
+                    rightMotor.brake();
+                    leftMotor.brake();
+                    while (!elapsedTime(1500)) {
+                    }
+                    break;
+
+                case TURN_RIGHT_45:
+                    Serial.println("TURN");
+                    rightMotor.backward(TURN_RIGHT_SPEED);
+                    leftMotor.forward(TURN_RIGHT_SPEED);
+                    while (!elapsedTime(
+                        TURN_RIGHT_45_DELAY)) {  // necesita un poco mas
                     }
                     Serial.println("BRAKE");
                     rightMotor.brake();
@@ -194,11 +134,11 @@ void stateMachineTask(void *param) {
                     }
                     break;
 
-                case TURN_45_RIGHT:
+                case TURN_LEFT_45:
                     Serial.println("TURN");
-                    rightMotor.backward(60);
-                    leftMotor.forward(60);
-                    while (!elapsedTime(35)) {
+                    rightMotor.forward(TURN_LEFT_SPEED);
+                    leftMotor.backward(TURN_LEFT_SPEED);
+                    while (!elapsedTime(TURN_LEFT_45_DELAY)) {
                     }
                     Serial.println("BRAKE");
                     rightMotor.brake();
@@ -207,11 +147,38 @@ void stateMachineTask(void *param) {
                     }
                     break;
 
-                case TURN_45_LEFT:
-                    Serial.println("TURN");
-                    rightMotor.forward(60);
-                    leftMotor.backward(60);
-                    while (!elapsedTime(35)) {
+                case FORWARD_RIGHT:
+                    rightMotor.forward(70);
+                    leftMotor.forward(42);
+                    while (!elapsedTime(70)) { //80 ms en mb2
+                    }
+                    Serial.println("BRAKE");
+                    rightMotor.brake();
+                    leftMotor.brake();
+                    while (!elapsedTime(1000)) {
+                    }
+                    break;
+
+                case FORWARD_LEFT:
+                    leftMotor.forward(70);
+                    rightMotor.forward(49);
+                    while (!elapsedTime(70)) { //80 ms en mb2
+                    }
+                    Serial.println("BRAKE");
+                    rightMotor.brake();
+                    leftMotor.brake();
+                    while (!elapsedTime(1000)) {
+                    }
+                    break;
+
+                case SNAKE:
+                    leftMotor.forward(70);
+                    rightMotor.forward(49);
+                    while (!elapsedTime(70)) { //80 ms en mb2
+                    }
+                    rightMotor.forward(70);
+                    leftMotor.forward(42);
+                    while (!elapsedTime(70)) { //80 ms en mb2
                     }
                     Serial.println("BRAKE");
                     rightMotor.brake();
@@ -221,7 +188,7 @@ void stateMachineTask(void *param) {
                     break;
             }
         }
-        else{
+        else {
             Serial.println("Waiting signal");
         }
         vTaskDelay(pdMS_TO_TICKS(1));
