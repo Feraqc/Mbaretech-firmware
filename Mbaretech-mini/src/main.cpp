@@ -57,9 +57,9 @@ void setup() {
     pinMode(START_PIN, INPUT);
     attachInterrupt(digitalPinToInterrupt(START_PIN), KS_ISR, CHANGE);
 
-    attachInterrupt(digitalPinToInterrupt(IR1), IR1_ISR, CHANGE);
-    attachInterrupt(digitalPinToInterrupt(IR2), IR2_ISR, CHANGE);
-    attachInterrupt(digitalPinToInterrupt(IR3), IR3_ISR, CHANGE);
+    //attachInterrupt(digitalPinToInterrupt(IR1), IR1_ISR, CHANGE);
+    //attachInterrupt(digitalPinToInterrupt(IR2), IR2_ISR, CHANGE);
+    //attachInterrupt(digitalPinToInterrupt(IR3), IR3_ISR, CHANGE);
 
     // Start pins
     pinMode(START_PIN, INPUT);

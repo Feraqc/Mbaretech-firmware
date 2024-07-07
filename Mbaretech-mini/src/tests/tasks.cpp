@@ -89,28 +89,49 @@ void motorTask(void *param)
 
     while (true)
     {
-        // Serial.print(currentState);
-        // Serial.print("\t");
-        // Serial.print(irSensor[RIGHT]);
-        // Serial.print("\t");
-        // Serial.print(irSensor[MID]);
-        // Serial.print("\t");
-        // Serial.print(irSensor[LEFT]);
-        // Serial.print("\n");
+        Serial.print(currentState);
+        Serial.print("\t");
+        Serial.print(irSensor[LEFT]);
+        Serial.print("\t");
+        Serial.print(irSensor[MID]);
+        Serial.print("\t");
+        Serial.print(irSensor[RIGHT]);
+        Serial.print("\n");
 
         switch (currentState)
         {
         case FORWARD:
-            rightMotor.forward(0);
-            leftMotor.forward(0);
+            rightMotor.forward(15);
+            leftMotor.forward(15);
+
+            irSensor[MID] = !digitalRead(IR2);
+            irSensor[LEFT] = !digitalRead(IR1);
+            irSensor[RIGHT] = !digitalRead(IR3);
 
             if (!startSignal)
             {
                 currentState = IDLE;
-            }
+            }/*
             else if (elapsedTime(1000))
             {
                 currentState = TURN_RIGHT;
+            }
+            */
+            else if (irSensor[LEFT] & !irSensor[RIGHT]){
+                leftMotor.forward(98);
+                rightMotor.forward(100);
+            }
+            else if (!irSensor[LEFT] & irSensor[RIGHT]){
+                leftMotor.forward(100);
+                rightMotor.forward(98);
+            }
+           
+            else if (irSensor[LEFT] & irSensor[RIGHT]){
+                leftMotor.forward(100);
+                rightMotor.forward(100);
+            }
+            else if (!irSensor[MID]){
+                currentState = BRAKE;
             }
             break;
 
@@ -134,31 +155,26 @@ void motorTask(void *param)
             if (startSignal)
             {
                 currentState = BRAKE;
-                irSensor[0] = digitalRead(IR1);
-                irSensor[1] = digitalRead(IR2);
-                irSensor[2] = digitalRead(IR3);
             }
             break;
 
         case TURN_LEFT:
             currMove = xTaskGetTickCount();
-            if (currMove - lastLeft >= 10)
+            if (currMove - lastLeft >= 140)
             { // 2 * delay
-                rightMotor.forward(50);
-                leftMotor.backward(50);
+                rightMotor.brake();
+                leftMotor.forward(10);
+                while(!elapsedTime(105)){
+                    Serial.println("Turning left");
+                };
                 lastLeft = xTaskGetTickCount();
-            }
-            else
-            {
-                currentState = BRAKE;
             }
 
             if (!startSignal)
             {
                 currentState = IDLE;
             }
-            else if (elapsedTime(2))
-            {
+            else {
                 currentState = BRAKE;
             }
             break;
@@ -166,22 +182,21 @@ void motorTask(void *param)
         case TURN_RIGHT:
             // Serial.println("TURN RIGHT");
             currMove = xTaskGetTickCount();
-            if (currMove - lastRight >= 10)
+            if (currMove - lastRight >= 140)
             { // 2 * delay
-                rightMotor.backward(20);
-                leftMotor.forward(20);
+                rightMotor.forward(10);
+                leftMotor.brake();
+                while(!elapsedTime(105)){
+                    Serial.println("Turning left");
+                };
                 lastRight = xTaskGetTickCount();
-            }
-            else
-            {
-                currentState = BRAKE;
             }
 
             if (!startSignal)
             {
                 currentState = IDLE;
             }
-            else if (elapsedTime(2))
+            else if (elapsedTime(3))
             {
                 currentState = BRAKE;
             }
@@ -202,19 +217,35 @@ void motorTask(void *param)
             //     currentState = TURN_RIGHT;
             //     desiredAngle = 30;
             // }
-            else if (irSensor[RIGHT])
+            /*
+            else if (irSensor[RIGHT] && !irSensor[MID] && !irSensor[LEFT])
             {
                 currentState = TURN_RIGHT;
                 // desiredAngle = 15;
             }
-            else if (irSensor[LEFT])
+            else if (irSensor[LEFT] && !irSensor[MID] && !irSensor[RIGHT])
             {
                 currentState = TURN_LEFT;
                 // desiredAngle = 15;
             }
             break;
+            */
+           irSensor[MID] = !digitalRead(IR2);
+           irSensor[LEFT] = !digitalRead(IR1);
+           irSensor[RIGHT] = !digitalRead(IR3);
+           if (irSensor[MID]){
+                currentState = FORWARD;
+           }
+           else if (irSensor[LEFT]){
+                currentState = TURN_LEFT;
+                //Serial.println("IR LEFT ON");
+           }
+
+           else if (irSensor[RIGHT]){
+                currentState = TURN_RIGHT;
+           }
         }
-        vTaskDelay(pdMS_TO_TICKS(1));
+        vTaskDelay(pdMS_TO_TICKS(10));
     }
 }
 
