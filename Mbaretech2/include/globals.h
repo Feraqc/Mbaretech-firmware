@@ -18,13 +18,13 @@
 #include "IMU.h"
 #include "motor.h"	
 
-#define IR1 40
-#define IR2 39
+#define IR1 39
+#define IR2 40
 #define IR3 38
-#define IR4 18
-#define IR5 17
-#define IR6 4
-#define IR7 5
+#define IR4 4
+#define IR5 5
+#define IR6 18
+#define IR7 17
 
 #define DIPA 42
 #define DIPB 2
@@ -48,6 +48,35 @@
 #define ADC_WIDTH ADC_WIDTH_BIT_12
 
 // SPEED AND TIMERS
+#define TURN_LEFT_SPEED 60 //percertage
+#define LAST_LEFT_45_TIMER 100
+#define TURN_LEFT_45_DELAY 40
+
+#define LAST_LEFT_90_TIMER 230
+#define TURN_LEFT_90_DELAY 105
+
+#define TURN_RIGHT_SPEED 60
+#define LAST_RIGHT_45_TIMER 110
+#define TURN_RIGHT_45_DELAY 50
+
+#define LAST_RIGHT_90_TIMER 250
+#define TURN_RIGHT_90_DELAY 125
+
+#define SHORT_TURN_DELAY 70
+
+#define FORWARD_70 70
+#define FORWARD_49 49
+#define FORWARD_42 42
+
+#define MAX_SPEED 100
+
+
+
+extern TickType_t lastLeft45;
+extern TickType_t lastRight45;
+extern TickType_t lastLeft90;
+extern TickType_t lastRight;
+extern TickType_t currMove;
 
 
 void lineSensorsInit();
@@ -86,6 +115,7 @@ enum State {
     TURN_LEFT_90,
     FORWARD_LEFT,
     FORWARD_RIGHT,
+    SNAKE,
     ATTACK,
     BRAKE,
     INITIAL_MOVEMENT
