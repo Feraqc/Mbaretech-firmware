@@ -21,7 +21,7 @@ SemaphoreHandle_t gyroDataMutex;
 
 
 //VOLATILE VARIABLES
-volatile State currentState = IDLE;
+//volatile State currentState = IDLE;
 volatile bool irSensor[7];
 volatile bool startSignal = false;
 volatile unsigned long encoderLeftCounter = 0;
@@ -40,6 +40,7 @@ void  IRAM_ATTR encoderRightISR(){encoderRightCounter++;}
 
 void IRAM_ATTR KS_ISR(){startSignal = digitalRead(START_PIN);};
 
+//volatile State currentState;
 
 
 // Create AsyncWebServer instance on port 80
@@ -99,14 +100,14 @@ void setup() {
     attachInterrupt(digitalPinToInterrupt(ENCODER_RIGHT), encoderRightISR, RISING);
 
     // MUTEX
-    gyroDataMutex = xSemaphoreCreateMutex();
+   // gyroDataMutex = xSemaphoreCreateMutex();
 
     xTaskCreate(stateMachineTask, "stateMachineTask", 4096, NULL, 1, &stateMachineTaskHandle);
     //xTaskCreate(imuTask, "imuTask", 4096, NULL, 1, &imuTaskHandle);
     #ifdef RUN_LINE_SENSOR
-    xTaskCreate(lineSensorTask, "lineSensorTask", 4096, NULL, 1, &lineSensorTaskHandle);
+    //xTaskCreate(lineSensorTask, "lineSensorTask", 4096, NULL, 1, &lineSensorTaskHandle);
     #endif
-
+    //currentState = IDLE;
     // Create tasks conditionally
     #ifndef RUN_GYRO_TEST
     #ifndef RUN_IR_SENSOR_TEST
@@ -115,7 +116,7 @@ void setup() {
     #ifndef RUN_DRIVER_TEST
     #ifndef RUN_LINE_SENSOR_TEST
     #ifndef RUN_TASK_TEST
-    xTaskCreate(mainTask, "MainTask", 2048, NULL, 1, NULL);
+   // xTaskCreate(mainTask, "MainTask", 2048, NULL, 1, NULL);
     #endif  // RUN_TASK_TEST
     #endif  // RUN_LINE_SENSOR_TEST
     #endif  // RUN_IR_SENSOR_TEST
@@ -281,7 +282,7 @@ void mainTask(void *pvParameters) {
 //     }
 // }
 
-void changeState(State newState) { currentState = newState; }
+//void changeState(State newState) { currentState = newState; }
 
 void loop() {}
 

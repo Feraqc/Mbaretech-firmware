@@ -63,7 +63,8 @@ class Motor{
             ledc_channel_config(&ledc_channel);
         }
 
-        void setSpeed(uint32_t speed){
+        void setSpeed(uint32_t percentage){
+            int speed = map(percentage,0,100,0,1023);
             speed = constrain(speed,1,MAX_DUTY_VALUE); // Datasheet dice 98%, le capeo a casi 97% ~ 990
             ledc_set_duty(LEDC_LOW_SPEED_MODE,pwmChannel,speed);
             ledc_update_duty(LEDC_LOW_SPEED_MODE,pwmChannel);
