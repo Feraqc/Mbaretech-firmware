@@ -1,6 +1,7 @@
 #ifdef RUN_TASK_TEST
 #include "globals.h"
 
+
 void imuTask(void *param)
 {
     while (true)
@@ -101,8 +102,8 @@ void motorTask(void *param)
         switch (currentState)
         {
         case FORWARD:
-            rightMotor.forward(15);
-            leftMotor.forward(15);
+            rightMotor.forward(FORWARD_SPEED);
+            leftMotor.forward(FORWARD_SPEED);
 
             irSensor[MID] = !digitalRead(IR2);
             irSensor[LEFT] = !digitalRead(IR1);
@@ -118,17 +119,17 @@ void motorTask(void *param)
             }
             */
             else if (irSensor[LEFT] & !irSensor[RIGHT]){
-                leftMotor.forward(98);
-                rightMotor.forward(100);
+                leftMotor.forward(ALMOST_MAX_SPEED);
+                rightMotor.forward(MAX_SPEED);
             }
             else if (!irSensor[LEFT] & irSensor[RIGHT]){
-                leftMotor.forward(100);
-                rightMotor.forward(98);
+                leftMotor.forward(MAX_SPEED);
+                rightMotor.forward(ALMOST_MAX_SPEED);
             }
            
             else if (irSensor[LEFT] & irSensor[RIGHT]){
-                leftMotor.forward(100);
-                rightMotor.forward(100);
+                leftMotor.forward(MAX_SPEED);
+                rightMotor.forward(MAX_SPEED);
             }
             else if (!irSensor[MID]){
                 currentState = BRAKE;
@@ -136,8 +137,8 @@ void motorTask(void *param)
             break;
 
         case BACKWARD:
-            rightMotor.backward(0);
-            leftMotor.backward(0);
+            rightMotor.backward(MIN_SPEED);
+            leftMotor.backward(MIN_SPEED);
 
             if (!startSignal)
             {
@@ -160,11 +161,11 @@ void motorTask(void *param)
 
         case TURN_LEFT:
             currMove = xTaskGetTickCount();
-            if (currMove - lastLeft >= 140)
+            if (currMove - lastLeft >= LAST_LEFT_TIMER)
             { // 2 * delay
                 rightMotor.brake();
-                leftMotor.forward(10);
-                while(!elapsedTime(105)){
+                leftMotor.forward(TURN_LEFT_SPEED);
+                while(!elapsedTime(TURN_LEFT_DELAY)){
                     Serial.println("Turning left");
                 };
                 lastLeft = xTaskGetTickCount();
@@ -182,11 +183,11 @@ void motorTask(void *param)
         case TURN_RIGHT:
             // Serial.println("TURN RIGHT");
             currMove = xTaskGetTickCount();
-            if (currMove - lastRight >= 140)
+            if (currMove - lastRight >= LAST_RIGHT_TIMER)
             { // 2 * delay
-                rightMotor.forward(10);
+                rightMotor.forward(TURN_RIGHT_SPEED);
                 leftMotor.brake();
-                while(!elapsedTime(105)){
+                while(!elapsedTime(TURN_RIGHT_DELAY)){
                     Serial.println("Turning left");
                 };
                 lastRight = xTaskGetTickCount();
@@ -196,10 +197,8 @@ void motorTask(void *param)
             {
                 currentState = IDLE;
             }
-            else if (elapsedTime(3))
-            {
-                currentState = BRAKE;
-            }
+            currentState = BRAKE;
+            
             // else if(checkRotation(desiredAngle)){
             //     currentState = BRAKE;
             // }
@@ -245,7 +244,7 @@ void motorTask(void *param)
                 currentState = TURN_RIGHT;
            }
         }
-        vTaskDelay(pdMS_TO_TICKS(10));
+        vTaskDelay(pdMS_TO_TICKS(TASK_TICKS));
     }
 }
 

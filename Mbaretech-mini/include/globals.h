@@ -41,6 +41,23 @@
 //MOTORB
 #define PWM_B 13
 
+// SPEED AND TIMERS
+
+#define FORWARD_SPEED 15  // percent
+#define MAX_SPEED 100
+#define ALMOST_MAX_SPEED 98
+#define MIN_SPEED 0
+#define TURN_LEFT_SPEED 10
+#define TURN_RIGHT_SPEED 10
+
+#define TURN_LEFT_DELAY 105
+#define LAST_LEFT_TIMER 140
+
+#define TURN_RIGHT_DELAY 105
+#define LAST_RIGHT_TIMER 140
+
+#define TASK_TICKS 10
+
 enum Sensor { LEFT, MID, RIGHT};
 
 extern volatile bool irSensor[3];
