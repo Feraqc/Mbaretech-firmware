@@ -63,7 +63,9 @@ void motorTask(void *param) {
         BACKWARD,
         TURN_LEFT,
         TURN_RIGHT,
-        BRAKE
+        BRAKE,
+        MOVEMENT_U,
+        MOVEMENT_45
     } State;
     State currentState;
     currentState = IDLE;
@@ -107,8 +109,27 @@ void motorTask(void *param) {
                     leftMotor.brake();
                     while (!elapsedTime(1000)) {};
                     Serial.println("Getting out of turn right");
-
                     break;
+
+                case MOVEMENT_U:
+                    rightMotor.forward(40); //AVANCE
+                    leftMotor.forward(10);
+                    while(elapsedTime(20)){}
+                    break;
+
+                CASE MOVEMENT_45:
+                    rightMotor.forward(40); //AVANCE
+                    leftMotor.forward(40);
+                    while(elapsedTime(100)){}
+                    rightMotor.forward(20); //GIRO
+                    leftMotor.brake();
+                    while(elapsedTime(10)){}
+                    rightMotor.forward(40); //AVANCE
+                    leftMotor.forward(40);
+                    break;
+
+                CASE BRAKE:
+                    break
             }
             vTaskDelay(pdMS_TO_TICKS(1));
         }
