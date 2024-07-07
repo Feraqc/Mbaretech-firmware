@@ -4,6 +4,7 @@
 volatile bool irSensor[3];
 volatile bool startSignal = false; // Creo que debe ser volatile si le trato con interrupt
 bool dipSwitchPin[4];  // de A a D
+volatile bool lineSensor[4];
 
 Motor leftMotor(PWM_B,FORWARD_MAX_LEFT,FORWARD_MIN_LEFT,BACKWARD_MAX_LEFT,BACKWARD_MIN_LEFT);
 Motor rightMotor(PWM_A,FORWARD_MAX_RIGHT,FORWARD_MIN_RIGHT,BACKWARD_MAX_RIGHT,BACKWARD_MIN_RIGHT);
@@ -11,10 +12,12 @@ Motor rightMotor(PWM_A,FORWARD_MAX_RIGHT,FORWARD_MIN_RIGHT,BACKWARD_MAX_RIGHT,BA
 //TASK HANDLERS
 TaskHandle_t imuTaskHandle;
 TaskHandle_t motorTaskHandle;
+TaskHandle_t lineSensorTaskHandle;
 
 //TAKS
 void motorTask(void *param);
 void imuTask(void *param);
+void lineSensorTask(void *param);
 
 
 //MUTEXS
@@ -47,6 +50,7 @@ void setup() {
     Serial.begin(115200);
     rightMotor.begin();
     leftMotor.begin();
+    lineSensorsInit();
 
     //imu.begin();
     // IR sensors
@@ -72,6 +76,7 @@ void setup() {
 
     xTaskCreate(motorTask, "motorTask", 4096, NULL, 1, &motorTaskHandle);
    // xTaskCreate(imuTask, "imuTask", 4096, NULL, 1, &imuTaskHandle);
+   //xTaskCreate(lineSensorTask, "lineSensorTask", 4096, NULL, 1, &lineSensorTaskHandle);
 
 
     #ifdef RUN_WIFI_SENSORS_TEST
@@ -222,7 +227,35 @@ void loop() {};
 
 #endif // RUN_WIFI_SENSORS_TEST
 
+void lineSensorsInit(){
 
+    adc1_config_width(ADC_WIDTH);
+    adc1_config_channel_atten(ADC1_CHANNEL_2, ADC_ATTEN_DB_12);
+    adc1_config_channel_atten(ADC1_CHANNEL_7, ADC_ATTEN_DB_12);
+    
+    adc2_config_channel_atten(ADC2_CHANNEL_8, ADC_ATTEN_DB_12);
+    adc2_config_channel_atten(ADC2_CHANNEL_9, ADC_ATTEN_DB_12);
+}
+
+int readLineSensorFront(adc1_channel_t channel){
+  return adc1_get_raw(channel);
+}
+
+int readLineSensorBack(adc2_channel_t channel) {
+    int adc_reading;
+    if (adc2_get_raw(channel, ADC_WIDTH, &adc_reading) == ESP_OK) {
+        return adc_reading;
+    } else {
+        return -1; 
+    }
+}
+
+bool checkLineSensor(int measurement,int threshold){
+  static uint8_t counter = 0;
+  if(measurement<=threshold){counter++;}
+  else{counter = 0;}
+  return (counter >=10); 
+}
 
 
 
