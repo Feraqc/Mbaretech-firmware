@@ -6,6 +6,7 @@ void loop() {
         Serial.print(sensorReadings[i]);
         Serial.print("\t");
     }
+    Serial.print("\n");
     vTaskDelay(10 / portTICK_PERIOD_MS);
 
 }
