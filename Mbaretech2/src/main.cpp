@@ -4,7 +4,7 @@ bool dipSwitchPin[4];
 
 Motor leftMotor(PWM_A,PIN_A0,PIN_A1,CHANNEL_LEFT);
 Motor rightMotor(PWM_B,PIN_B0,PIN_B1,CHANNEL_RIGHT);
-IMU imu;
+//IMU imu;
 
 //SHARED VARIABLES
 int currentAngle;
@@ -96,8 +96,8 @@ void setup() {
     // Encoders
     pinMode(ENCODER_LEFT, INPUT);
     pinMode(ENCODER_RIGHT, INPUT);
-    attachInterrupt(digitalPinToInterrupt(ENCODER_LEFT), encoderLeftISR, RISING);
-    attachInterrupt(digitalPinToInterrupt(ENCODER_RIGHT), encoderRightISR, RISING);
+    //attachInterrupt(digitalPinToInterrupt(ENCODER_LEFT), encoderLeftISR, RISING);
+    //attachInterrupt(digitalPinToInterrupt(ENCODER_RIGHT), encoderRightISR, RISING);
 
     // MUTEX
    // gyroDataMutex = xSemaphoreCreateMutex();
