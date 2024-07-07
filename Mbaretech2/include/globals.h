@@ -47,6 +47,9 @@
 #define LINE_BACK_RIGHT ADC2_CHANNEL_9
 #define ADC_WIDTH ADC_WIDTH_BIT_12
 
+// SPEED AND TIMERS
+
+
 void lineSensorsInit();
 int readLineSensorFront(adc1_channel_t channel);
 int readLineSensorBack(adc2_channel_t channel);
@@ -77,7 +80,10 @@ enum State {
     FORWARD,
     BACKWARD,
     TURN_RIGHT,
-    TURN_LEFT,
+    TURN_LEFT_45,
+    TURN_RIGHT_45,
+    TURN_RIGHT_90,
+    TURN_LEFT_90,
     FORWARD_LEFT,
     FORWARD_RIGHT,
     ATTACK,

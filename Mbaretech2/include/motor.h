@@ -9,15 +9,15 @@
 #define FREQUENCY 40000
 
 //MOTOR A
-#define PWM_A 48
-#define PIN_A0 47
-#define PIN_A1 45
+#define PWM_B 48
+#define PIN_B0 47
+#define PIN_B1 45
 #define CHANNEL_LEFT LEDC_CHANNEL_1
 
 //MOTORB
-#define PWM_B 35 // En el diagrama esta al reves, ignorar
-#define PIN_B0 36
-#define PIN_B1 37
+#define PWM_A 35 // En el diagrama esta al reves, ignorar
+#define PIN_A0 36
+#define PIN_A1 37
 #define CHANNEL_RIGHT LEDC_CHANNEL_0
 
 #define MAX_DUTY_VALUE 990
@@ -72,13 +72,13 @@ class Motor{
         }
 
         void forward(uint32_t speed){
-            digitalWrite(A0pin,1);
-            digitalWrite(A1pin,0);
+            digitalWrite(A0pin,0);
+            digitalWrite(A1pin,1);
             setSpeed(speed);
         }
         void backward(uint32_t speed){
-            digitalWrite(A0pin,0);
-            digitalWrite(A1pin,1);
+            digitalWrite(A0pin,1);
+            digitalWrite(A1pin,0);
             setSpeed(speed);
         }
         void brake(){
