@@ -48,7 +48,7 @@ void setup() {
     rightMotor.begin();
     leftMotor.begin();
 
-    imu.begin();
+    //imu.begin();
     // IR sensors
     pinMode(IR1, INPUT);
     pinMode(IR2, INPUT);
@@ -68,7 +68,7 @@ void setup() {
     pinMode(DIPC, INPUT);
     pinMode(DIPD, INPUT);
 
-    gyroDataMutex = xSemaphoreCreateMutex();
+    //gyroDataMutex = xSemaphoreCreateMutex();
 
     xTaskCreate(motorTask, "motorTask", 4096, NULL, 1, &motorTaskHandle);
    // xTaskCreate(imuTask, "imuTask", 4096, NULL, 1, &imuTaskHandle);
