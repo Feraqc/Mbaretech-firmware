@@ -7,7 +7,7 @@
 #include <freertos/queue.h>
 #include <freertos/task.h>
 #include "freertos/semphr.h"
-
+#include "lineSensor.h"
 #include "IMU.h"
 
 #include <WiFi.h>
@@ -57,6 +57,12 @@
 #define LAST_RIGHT_TIMER 140
 
 #define TASK_TICKS 10
+
+#define LINE_FRONT_LEFT ADC1_CHANNEL_2
+#define LINE_FRONT_RIGHT ADC1_CHANNEL_7
+#define LINE_BACK_LEFT ADC2_CHANNEL_8
+#define LINE_BACK_RIGHT ADC2_CHANNEL_9
+#define ADC_WIDTH ADC_WIDTH_BIT_12
 
 enum Sensor { LEFT, MID, RIGHT};
 
