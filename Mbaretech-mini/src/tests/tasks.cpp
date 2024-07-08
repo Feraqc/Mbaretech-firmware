@@ -69,7 +69,7 @@ void motorTask(void *param) {
                 }
 
                 else if (irSensor[LEFT] & irSensor[RIGHT]) {
-                    if (!turkish) {
+                    if (!snake) {
                         leftMotor.forward(MAX_SPEED);
                         rightMotor.forward(MAX_SPEED);
                     }
@@ -114,13 +114,18 @@ void motorTask(void *param) {
 
                     if (digitalRead(DIPB)) {
                         turkish = true;
+                        currentState = BRAKE;
                     }
 
                     else if (digitalRead(DIPA)) {  // Ojo valido solo para mini
                                                    // las combinaciones
                         snake = true;
+                        currentState = FORWARD;
                     }
-                    currentState = FORWARD;
+                    else{
+                        currentState = FORWARD;
+                    }
+                    
 
                     if (!digitalRead(DIPD) & digitalRead(DIPC)) {
                         // currentState = TURN_180;
@@ -198,12 +203,18 @@ void motorTask(void *param) {
                 else if (irSensor[RIGHT]) {
                     currentState = TURN_RIGHT;
                 }
+                
                 else {
                     if (turkish) {
                         // Completar
                         currTurkish = xTaskGetTickCount();
                         if (currTurkish - lastTurkish >= TURKISH_TIME) {
-                            currentState = FORWARD;
+                            Serial.print("MOVING A LITTLE");
+                            rightMotor.forward(15);
+                            leftMotor.forward(0);
+                            while(!elapsedTime(120)){}
+                            rightMotor.brake();
+                            leftMotor.brake();
                             lastTurkish = xTaskGetTickCount();
                         }
                     }
@@ -214,7 +225,7 @@ void motorTask(void *param) {
                 break;
 
             case MOVEMENT_45:
-                
+
                 Serial.println("entro");
                 // Serial.println("INITIAL MOVE");
                 Serial.println("GIRO");
@@ -225,13 +236,15 @@ void motorTask(void *param) {
                 Serial.println("AVANCE");
                 rightMotor.forward(45);  // AVANCE
                 leftMotor.forward(45);
-                while (!elapsedTime(190)) {
+                while (!elapsedTime(110)) {
                 }
                 Serial.println("GIRO");
                 rightMotor.backward(70);  // GIRO
                 leftMotor.forward(TURN_RIGHT_SPEED + 70);
                 while (!elapsedTime(TURN_RIGHT_DELAY + 20)) {
                 }
+                rightMotor.brake();
+                leftMotor.brake();
                 currentState = BRAKE;
 
                 break;
