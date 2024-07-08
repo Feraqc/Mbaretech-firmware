@@ -1,251 +1,245 @@
 #ifdef RUN_TASK_TEST
 #include "globals.h"
 
+bool snake = false;
+bool turkish = false;
 
-void imuTask(void *param)
-{
-    while (true)
-    {
-        imu.getData();
-        if (xSemaphoreTake(gyroDataMutex, portMAX_DELAY) == pdTRUE)
-        {
-            currentAngle = imu.currentAngle;
-            xSemaphoreGive(gyroDataMutex);
-        }
-        vTaskDelay(pdMS_TO_TICKS(1));
-    }
-}
+TickType_t currTurkish = 0;
+TickType_t lastTurkish = 0;
 
-bool elapsedTime(TickType_t duration)
-{
-    static TickType_t startTime = 0;
-    static bool firstCall = true;
-    TickType_t currentTime = xTaskGetTickCount();
-
-    if (firstCall)
-    {
-        startTime = currentTime;
-        firstCall = false;
-    }
-
-    if ((currentTime - startTime) >= duration)
-    {
-        startTime = currentTime;
-        firstCall = true;
-        return true;
-    }
-    else
-    {
-        return false;
-    }
-}
-
-bool checkRotation(int rotationAngle)
-{
-    static int initialAngle = 0;
-    int currentAngleRotation = 0;
-    static bool firstCall = true;
-
-    if (xSemaphoreTake(gyroDataMutex, portMAX_DELAY) == pdTRUE)
-    {
-        if (firstCall)
-        {
-            firstCall = false;
-            initialAngle = currentAngle; // Initialize initialAngle only once
-        }
-        currentAngleRotation = currentAngle;
-        xSemaphoreGive(gyroDataMutex);
-    }
-
-    if (abs(currentAngleRotation - initialAngle) >= rotationAngle)
-    {
-        initialAngle = currentAngleRotation;
-        firstCall = true;
-        return true;
-    }
-    else
-    {
-        return false;
-    }
-}
-
-void motorTask(void *param)
-{
-    typedef enum
-    {
-        IDLE,
-        FORWARD,
-        BACKWARD,
-        TURN_LEFT,
-        TURN_RIGHT,
-        BRAKE
-    } State;
+void motorTask(void *param) {
     State currentState;
     currentState = IDLE;
-    int desiredAngle = 0;
 
     TickType_t lastLeft = 0;
     TickType_t lastRight = 0;
     TickType_t currMove;
 
-    while (true)
-    {
-        Serial.print(currentState);
-        Serial.print("\t");
-        Serial.print(irSensor[LEFT]);
-        Serial.print("\t");
-        Serial.print(irSensor[MID]);
-        Serial.print("\t");
-        Serial.print(irSensor[RIGHT]);
-        Serial.print("\n");
-
-        switch (currentState)
-        {
-        case FORWARD:
-            rightMotor.forward(FORWARD_SPEED);
-            leftMotor.forward(FORWARD_SPEED);
-
-            irSensor[MID] = !digitalRead(IR2);
-            irSensor[LEFT] = !digitalRead(IR1);
-            irSensor[RIGHT] = !digitalRead(IR3);
-
-            if (!startSignal)
-            {
-                currentState = IDLE;
-            }/*
-            else if (elapsedTime(1000))
-            {
-                currentState = TURN_RIGHT;
-            }
-            */
-            else if (irSensor[LEFT] & !irSensor[RIGHT]){
-                leftMotor.forward(ALMOST_MAX_SPEED);
-                rightMotor.forward(MAX_SPEED);
-            }
-            else if (!irSensor[LEFT] & irSensor[RIGHT]){
-                leftMotor.forward(MAX_SPEED);
-                rightMotor.forward(ALMOST_MAX_SPEED);
-            }
-           
-            else if (irSensor[LEFT] & irSensor[RIGHT]){
-                leftMotor.forward(MAX_SPEED);
-                rightMotor.forward(MAX_SPEED);
-            }
-            else if (!irSensor[MID]){
-                currentState = BRAKE;
-            }
-            break;
-
-        case BACKWARD:
-            rightMotor.backward(MIN_SPEED);
-            leftMotor.backward(MIN_SPEED);
-
-            if (!startSignal)
-            {
-                currentState = IDLE;
-            }
-            else if (elapsedTime(1000))
-            {
-                currentState = FORWARD;
-            }
-            break;
-
-        case IDLE:
-            leftMotor.brake();
-            rightMotor.brake();
-            if (startSignal)
-            {
-                currentState = BRAKE;
-            }
-            break;
-
-        case TURN_LEFT:
-            currMove = xTaskGetTickCount();
-            if (currMove - lastLeft >= LAST_LEFT_TIMER)
-            { // 2 * delay
-                rightMotor.brake();
-                leftMotor.forward(TURN_LEFT_SPEED);
-                while(!elapsedTime(TURN_LEFT_DELAY)){
-                    Serial.println("Turning left");
-                };
-                lastLeft = xTaskGetTickCount();
-            }
-
-            if (!startSignal)
-            {
-                currentState = IDLE;
-            }
-            else {
-                currentState = BRAKE;
-            }
-            break;
-
-        case TURN_RIGHT:
-            // Serial.println("TURN RIGHT");
-            currMove = xTaskGetTickCount();
-            if (currMove - lastRight >= LAST_RIGHT_TIMER)
-            { // 2 * delay
-                rightMotor.forward(TURN_RIGHT_SPEED);
-                leftMotor.brake();
-                while(!elapsedTime(TURN_RIGHT_DELAY)){
-                    Serial.println("Turning left");
-                };
-                lastRight = xTaskGetTickCount();
-            }
-
-            if (!startSignal)
-            {
-                currentState = IDLE;
-            }
-            currentState = BRAKE;
-            
-            // else if(checkRotation(desiredAngle)){
-            //     currentState = BRAKE;
-            // }
-            break;
-
-        case BRAKE:
-            leftMotor.brake();
-            rightMotor.brake();
-
-            if (!startSignal)
-            {
-                currentState = IDLE;
-            }
-            // else if(irSensor[0]){
-            //     currentState = TURN_RIGHT;
-            //     desiredAngle = 30;
-            // }
+    while (true) {
+        if (currentState) {
+            Serial.print(currentState);
             /*
-            else if (irSensor[RIGHT] && !irSensor[MID] && !irSensor[LEFT])
-            {
-                currentState = TURN_RIGHT;
-                // desiredAngle = 15;
-            }
-            else if (irSensor[LEFT] && !irSensor[MID] && !irSensor[RIGHT])
-            {
-                currentState = TURN_LEFT;
-                // desiredAngle = 15;
-            }
-            break;
+            Serial.print("\t");
+            Serial.print(irSensor[LEFT]);
+            Serial.print("\t");
+            Serial.print(irSensor[MID]);
+            Serial.print("\t");
+            Serial.print(irSensor[RIGHT]);
             */
-           irSensor[MID] = !digitalRead(IR2);
-           irSensor[LEFT] = !digitalRead(IR1);
-           irSensor[RIGHT] = !digitalRead(IR3);
-           if (irSensor[MID]){
-                currentState = FORWARD;
-           }
-           else if (irSensor[LEFT]){
-                currentState = TURN_LEFT;
-                //Serial.println("IR LEFT ON");
-           }
+            Serial.print("\n");
+        }
 
-           else if (irSensor[RIGHT]){
-                currentState = TURN_RIGHT;
-           }
+        switch (currentState) {
+            case FORWARD:
+                Serial.println("FORWARD");
+                if (!snake) {
+                    rightMotor.forward(FORWARD_SPEED);
+                    leftMotor.forward(FORWARD_SPEED);
+                }
+                else {
+                    leftMotor.forward(FORWARD_SPEED);
+                    rightMotor.forward(FORWARD_SPEED - 5);
+                    while (!elapsedTime(TURN_LEFT_DELAY)) {
+                    }
+                    rightMotor.forward(FORWARD_SPEED);
+                    leftMotor.forward(FORWARD_SPEED - 5);
+                    while (!elapsedTime(TURN_LEFT_DELAY)) {
+                    }
+                }
+
+                irSensor[MID] = !digitalRead(IR2);
+                irSensor[LEFT] = !digitalRead(IR1);
+                irSensor[RIGHT] = !digitalRead(IR3);
+
+                if (!startSignal) {
+                    currentState = IDLE;
+                } /*
+                 else if (elapsedTime(1000))
+                 {
+                     currentState = TURN_RIGHT;
+                 }
+                 */
+                else if (irSensor[LEFT] & !irSensor[RIGHT]) {
+                    leftMotor.forward(ALMOST_MAX_SPEED);
+                    rightMotor.forward(MAX_SPEED);
+                }
+                else if (!irSensor[LEFT] & irSensor[RIGHT]) {
+                    leftMotor.forward(MAX_SPEED);
+                    rightMotor.forward(ALMOST_MAX_SPEED);
+                }
+
+                else if (irSensor[LEFT] & irSensor[RIGHT]) {
+                    if (!turkish) {
+                        leftMotor.forward(MAX_SPEED);
+                        rightMotor.forward(MAX_SPEED);
+                    }
+                    else {
+                        leftMotor.forward(MAX_SPEED);
+                        rightMotor.forward(ALMOST_MAX_SPEED);
+                        while (!elapsedTime(TURN_LEFT_DELAY)) {
+                        }
+                        rightMotor.forward(MAX_SPEED);
+                        leftMotor.forward(ALMOST_MAX_SPEED);
+                        while (!elapsedTime(TURN_LEFT_DELAY)) {
+                        }
+                    }
+                }
+                else if (!irSensor[MID]) {
+                    currentState = BRAKE;
+                }
+                break;
+
+            case BACKWARD:
+                Serial.println("BACKWARD");
+                rightMotor.backward(MIN_SPEED);
+                leftMotor.backward(MIN_SPEED);
+
+                if (!startSignal) {
+                    currentState = IDLE;
+                }
+                else if (elapsedTime(1000)) {
+                    currentState = FORWARD;
+                }
+                break;
+
+            case IDLE:
+                leftMotor.brake();
+                rightMotor.brake();
+                Serial.print(digitalRead(DIPA));
+                Serial.print(digitalRead(DIPB));
+                Serial.print(digitalRead(DIPC));
+                Serial.println(digitalRead(DIPD));
+                if (startSignal) {
+                    Serial.println("Changing state");
+
+                    if (digitalRead(DIPB)) {
+                        turkish = true;
+                    }
+
+                    else if (digitalRead(DIPA)) {  // Ojo valido solo para mini
+                                                   // las combinaciones
+                        snake = true;
+                    }
+                    currentState = FORWARD;
+
+                    if (!digitalRead(DIPD) & digitalRead(DIPC)) {
+                        // currentState = TURN_180;
+                    }
+                    else if (digitalRead(DIPD) & !digitalRead(DIPC)) {
+                        currentState = MOVEMENT_45;
+                    }
+                    else if (digitalRead(DIPD) & digitalRead(DIPC)) {
+                        // currentState = ???;
+                    }
+                }
+                break;
+
+            case TURN_LEFT:
+                Serial.println("TURN LEFT");
+                currMove = xTaskGetTickCount();
+                if (currMove - lastLeft >= LAST_LEFT_TIMER) {  // 2 * delay
+                    rightMotor.brake();
+                    leftMotor.forward(TURN_LEFT_SPEED);
+                    while (!elapsedTime(TURN_LEFT_DELAY)) {
+                        Serial.println("Turning left");
+                    };
+                    lastLeft = xTaskGetTickCount();
+                }
+
+                if (!startSignal) {
+                    currentState = IDLE;
+                }
+                else {
+                    currentState = BRAKE;
+                }
+                break;
+
+            case TURN_RIGHT:
+                Serial.println("TURN_RIGHT");
+                currMove = xTaskGetTickCount();
+                if (currMove - lastRight >= LAST_RIGHT_TIMER) {  // 2 * delay
+                    rightMotor.forward(TURN_RIGHT_SPEED);
+                    leftMotor.brake();
+                    while (!elapsedTime(TURN_RIGHT_DELAY)) {
+                        Serial.println("Turning left");
+                    };
+                    lastRight = xTaskGetTickCount();
+                }
+
+                if (!startSignal) {
+                    currentState = IDLE;
+                }
+                currentState = BRAKE;
+
+                // else if(checkRotation(desiredAngle)){
+                //     currentState = BRAKE;
+                // }
+                break;
+
+            case BRAKE:
+                Serial.println("BRAKE");
+                //leftMotor.brake();
+                //rightMotor.brake();
+
+                if (!startSignal) {
+                    currentState = IDLE;
+                }
+
+                irSensor[MID] = !digitalRead(IR2);
+                irSensor[LEFT] = !digitalRead(IR1);
+                irSensor[RIGHT] = !digitalRead(IR3);
+                if (irSensor[MID]) {
+                    currentState = FORWARD;
+                }
+                else if (irSensor[LEFT]) {
+                    currentState = TURN_LEFT;
+                }
+
+                else if (irSensor[RIGHT]) {
+                    currentState = TURN_RIGHT;
+                }
+                else {
+                    if (turkish) {
+                        // Completar
+                        currTurkish = xTaskGetTickCount();
+                        if (currTurkish - lastTurkish >= TURKISH_TIME) {
+                            currentState = FORWARD;
+                            lastTurkish = xTaskGetTickCount();
+                        }
+                    }
+                    else {
+                        currentState = FORWARD;
+                    }
+                }
+                break;
+
+            case MOVEMENT_45:
+                
+                Serial.println("entro");
+                // Serial.println("INITIAL MOVE");
+                Serial.println("GIRO");
+                rightMotor.forward(TURN_LEFT_SPEED + 40);  // GIRO
+                leftMotor.backward(20);
+                while (!elapsedTime(TURN_LEFT_DELAY)) {
+                }
+                Serial.println("AVANCE");
+                rightMotor.forward(45);  // AVANCE
+                leftMotor.forward(45);
+                while (!elapsedTime(190)) {
+                }
+                Serial.println("GIRO");
+                rightMotor.backward(70);  // GIRO
+                leftMotor.forward(TURN_RIGHT_SPEED + 70);
+                while (!elapsedTime(TURN_RIGHT_DELAY + 20)) {
+                }
+                currentState = BRAKE;
+
+                break;
         }
         vTaskDelay(pdMS_TO_TICKS(TASK_TICKS));
     }
 }
+
+void loop() {};
 
 #endif

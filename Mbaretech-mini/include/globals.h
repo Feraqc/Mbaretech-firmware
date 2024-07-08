@@ -6,16 +6,16 @@
 #include <freertos/FreeRTOS.h>
 #include <freertos/queue.h>
 #include <freertos/task.h>
+
 #include "freertos/semphr.h"
 #include "lineSensor.h"
-#include "IMU.h"
+// #include "IMU.h"
 
-#include <WiFi.h>
-#include <ESPAsyncWebServer.h>
-#include <AsyncTCP.h>
+// #include <WiFi.h>
+// #include <ESPAsyncWebServer.h>
+// #include <AsyncTCP.h>
 #include "esp_efuse.h"
 #include "esp_efuse_table.h"
-
 #include "motor.h"
 
 #define IR1 19
@@ -36,10 +36,13 @@
 #define LINE_LEFT 15
 #define LINE_RIGHT 17
 
-//MOTOR A
+// MOTOR A
 #define PWM_A 12
-//MOTORB
+// MOTORB
 #define PWM_B 13
+
+#define THRESHOLD 200  // veloz tiene que ser mas de 400
+// 250 del lento
 
 // SPEED AND TIMERS
 
@@ -58,50 +61,42 @@
 
 #define TASK_TICKS 10
 
-#define LINE_FRONT_LEFT ADC1_CHANNEL_2
-#define LINE_FRONT_RIGHT ADC1_CHANNEL_7
-#define LINE_BACK_LEFT ADC2_CHANNEL_8
-#define LINE_BACK_RIGHT ADC2_CHANNEL_9
+#define TURKISH_TIME 1000
+
+#define LINE_FRONT_LEFT ADC2_CHANNEL_4
+#define LINE_FRONT_RIGHT ADC2_CHANNEL_6
 #define ADC_WIDTH ADC_WIDTH_BIT_12
 
-enum Sensor { LEFT, MID, RIGHT};
+enum Sensor { LEFT, MID, RIGHT };
+
+enum State {
+    IDLE,
+    FORWARD,
+    BACKWARD,
+    TURN_LEFT,
+    TURN_RIGHT,
+    BRAKE,
+    MOVEMENT_U,
+    MOVEMENT_45,
+    SLOW_FORWARD
+};
 
 extern volatile bool irSensor[3];
-extern volatile bool startSignal;  // Creo que debe ser volatile si le trato con interrupt
-extern bool dipSwitchPin[4];  // de A a D
-
-// usar IRAM_ATTR para usar la ram interna
-void IR1_ISR();
-void IR2_ISR();
-void IR3_ISR();
+extern volatile bool
+    startSignal;  // Creo que debe ser volatile si le trato con interrupt
+extern bool dipSwitch[4];  // de A a D
+extern bool lineSensor[2];
 
 extern Motor leftMotor;
 extern Motor rightMotor;
 
-extern QueueHandle_t imuDataQueue;
-extern QueueHandle_t cmdQueue;
-
-extern TaskHandle_t imuTaskHandle;
-extern SemaphoreHandle_t gyroDataMutex;
-
-extern IMU imu;
-
 extern int currentAngle;
+
+bool elapsedTime(TickType_t duration);
 
 void imuTask(void *param);
 void mainTask(void *param);
-//void handleState();
-//void changeState(State newState);
+// void handleState();
+// void changeState(State newState);
 
-// Web server related functions
-extern AsyncWebServer server;
-extern AsyncWebSocket ws;
-extern void handleRoot();
-extern void sendSensorData();
-extern void webSocketTask(void *pvParameters);
-extern void onEvent(AsyncWebSocket *server, AsyncWebSocketClient *client, AwsEventType type, void *arg, uint8_t *data, size_t len);
-
-
-
-
-#endif // GLOBALS_H
+#endif  // GLOBALS_H
