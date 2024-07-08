@@ -38,9 +38,9 @@ void stateMachineTask(void *param) {
                 rightMotor.forward(40);  // 40% maso
                 leftMotor.forward(40);
 
-                irSensor[SHORT_LEFT] = digitalRead(IR2);
-                irSensor[TOP_MID] = digitalRead(IR4);
-                irSensor[SHORT_RIGHT] = digitalRead(IR6);
+                irSensor[SHORT_LEFT] = !digitalRead(IR2);
+                irSensor[TOP_MID] = !digitalRead(IR4);
+                irSensor[SHORT_RIGHT] = !digitalRead(IR6);
 
                 if (!startSignal) {  // KILLSWITCH
                     currentState = IDLE;
@@ -51,19 +51,19 @@ void stateMachineTask(void *param) {
                 }
                 
                 else if (irSensor[SHORT_LEFT] & !irSensor[SHORT_RIGHT]) {
-                    leftMotor.forward(FORWARD_70);
+                    leftMotor.forward(FORWARD_60);
                     rightMotor.forward(FORWARD_49);
-                    while (!elapsedTime(SHORT_TURN_DELAY)) { //80 ms en mb2
+                    while (!elapsedTime(SHORT_LEFT_DELAY)) { //80 ms en mb2
                     }
                 }
                 else if (!irSensor[SHORT_LEFT] & irSensor[SHORT_RIGHT]) {
-                    leftMotor.forward(FORWARD_70);
+                    leftMotor.forward(FORWARD_90);
                     rightMotor.forward(FORWARD_42);
-                    while (!elapsedTime(SHORT_TURN_DELAY)) { //80 ms en mb2
+                    while (!elapsedTime(SHORT_RIGHT_DELAY)) { //80 ms en mb2
                     }
                 }
 
-                else if (!irSensor[FRONT_MID]) {
+                else if (!irSensor[TOP_MID]) {
                     currentState = BRAKE;
                 }
                 
@@ -82,23 +82,23 @@ void stateMachineTask(void *param) {
                 irSensor[TOP_RIGHT] = !digitalRead(IR5);
                 
 
-                if (false) {  // irSensor[TOP_MID] leer sesnor medio
+                if (irSensor[TOP_MID]) {  // irSensor[TOP_MID] leer sesnor medio
                     changeState(FORWARD);
                 }
-                else if (false) {  // irSensor[TOP_LEFT]
+                else if (irSensor[TOP_LEFT]) {  // irSensor[TOP_LEFT]
                     changeState(TURN_LEFT_45);
                 }
-                else if (false) {  // irSensor[TOP_RIGHT]
+                else if (irSensor[TOP_RIGHT]) {  // irSensor[TOP_RIGHT]
                     changeState(TURN_RIGHT_45);
                 }
                 
                 irSensor[SIDE_LEFT] = !digitalRead(IR1);
                 irSensor[SIDE_RIGHT] = !digitalRead(IR7);
-                if (false) { // irSensor[SIDE_LEFT]
+                if (irSensor[SIDE_LEFT]) { // irSensor[SIDE_LEFT]
                     changeState(TURN_LEFT_90);
                 }
 
-                else if (false) {// irSensor[SIDE_RIGHT]
+                else if (irSensor[SIDE_RIGHT]) {// irSensor[SIDE_RIGHT]
                     changeState(TURN_RIGHT_90);
                 } 
                 break;
@@ -204,38 +204,24 @@ void stateMachineTask(void *param) {
                 Serial.println(startSignal);
                 if (startSignal) {
                     Serial.println("Changing state");
-                    currentState = BRAKE;
+                    if (digitalRead(DIPA)){
+
+                    }
+                    else if (digitalRead(DIPB)){
+
+                    }
+                    else if (digitalRead(DIPC)){
+
+                    }
+                    else if (digitalRead(DIPD)){
+
+                    }
+                    else{
+                        currentState = BRAKE;
+                    }
                 }
                 break;
-                /*
-                case TURN_LEFT:
-                    rightMotor.forward(0);
-                    leftMotor.backward(0);
-
-                    if (!startSignal) {
-                        currentState = IDLE;
-                    }
-                    else if (checkRotation(85)) {
-                        leftMotor.brake();
-                        rightMotor.brake();
-                        currentState = FORWARD;
-                    }
-                    break;
-
-                case TURN_RIGHT:
-                    rightMotor.backward(0);
-                    leftMotor.forward(0);
-
-                    if (!startSignal) {
-                        currentState = IDLE;
-                    }
-                    else if (checkRotation(85)) {
-                        leftMotor.brake();
-                        rightMotor.brake();
-                        currentState = FORWARD;
-                    }
-                    break;
-                    */
+                
         }
         vTaskDelay(pdMS_TO_TICKS(10));
     }

@@ -62,13 +62,18 @@
 #define LAST_RIGHT_90_TIMER 250
 #define TURN_RIGHT_90_DELAY 125
 
-#define SHORT_TURN_DELAY 70
+#define SHORT_RIGHT_DELAY 140
+#define SHORT_LEFT_DELAY 70
 
+#define FORWARD_90 90
 #define FORWARD_70 70
+#define FORWARD_60 60
 #define FORWARD_49 49
 #define FORWARD_42 42
 
 #define MAX_SPEED 100
+
+#define THRESHOLD 120
 
 
 
@@ -82,15 +87,17 @@ extern TickType_t currMove;
 void lineSensorsInit();
 int readLineSensorFront(adc1_channel_t channel);
 int readLineSensorBack(adc2_channel_t channel);
-bool checkLineSensor(int measurement,int threshold);
+bool checkLineSensor(int measurement);
 extern bool lineSensor[4];
+
+
 
 
 enum Sensor { SIDE_LEFT, SHORT_LEFT, TOP_LEFT, TOP_MID, TOP_RIGHT, SHORT_RIGHT, SIDE_RIGHT };
 
 extern volatile bool irSensor[7];
 extern volatile bool startSignal;  // Creo que debe ser volatile si le trato con interrupt
-extern bool dipSwitchPin[4];  // de A a D
+extern bool dipSwitch[4];  // de A a D
 
 // usar IRAM_ATTR para usar la ram interna
 void IR1_ISR();

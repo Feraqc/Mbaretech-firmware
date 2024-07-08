@@ -23,7 +23,7 @@ bool elapsedTime(TickType_t duration) {
 
 void stateMachineTask(void *param) {
 
-    State currentState = FORWARD_RIGHT;
+    State currentState = SNAKE;
 
     bool counter = 0;
     TickType_t lastLeft = 0;
@@ -148,9 +148,9 @@ void stateMachineTask(void *param) {
                     break;
 
                 case FORWARD_RIGHT:
-                    rightMotor.forward(70);
-                    leftMotor.forward(42);
-                    while (!elapsedTime(70)) { //80 ms en mb2
+                    rightMotor.forward(FORWARD_42);
+                    leftMotor.forward(FORWWARD_90);
+                    while (!elapsedTime(SHORT_RIGHT_DELAY)) { //80 ms en mb2
                     }
                     Serial.println("BRAKE");
                     rightMotor.brake();
@@ -160,9 +160,9 @@ void stateMachineTask(void *param) {
                     break;
 
                 case FORWARD_LEFT:
-                    leftMotor.forward(70);
-                    rightMotor.forward(49);
-                    while (!elapsedTime(70)) { //80 ms en mb2
+                    rightMotor.forward(FORWARD_60);
+                    leftMotor.forward(FORWARD_49);
+                    while (!elapsedTime(SHORT_LEFT_DELAY)) { //80 ms en mb2
                     }
                     Serial.println("BRAKE");
                     rightMotor.brake();
@@ -172,13 +172,13 @@ void stateMachineTask(void *param) {
                     break;
 
                 case SNAKE:
-                    leftMotor.forward(70);
-                    rightMotor.forward(49);
-                    while (!elapsedTime(70)) { //80 ms en mb2
+                    leftMotor.forward(FORWARD_90);
+                    rightMotor.forward(FORWARD_42);
+                    while (!elapsedTime(SHORT_RIGHT_DELAY)) { //80 ms en mb2
                     }
-                    rightMotor.forward(70);
-                    leftMotor.forward(42);
-                    while (!elapsedTime(70)) { //80 ms en mb2
+                    rightMotor.forward(FORWARD_60);
+                    leftMotor.forward(FORWARD_49);
+                    while (!elapsedTime(SHORT_LEFT_DELAY)) { //80 ms en mb2
                     }
                     Serial.println("BRAKE");
                     rightMotor.brake();
