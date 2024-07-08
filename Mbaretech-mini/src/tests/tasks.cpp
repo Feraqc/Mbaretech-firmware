@@ -208,33 +208,11 @@ void motorTask(void *param)
             leftMotor.brake();
             rightMotor.brake();
 
-            if (!startSignal)
-            {
-                currentState = IDLE;
-            }
-            // else if(irSensor[0]){
-            //     currentState = TURN_RIGHT;
-            //     desiredAngle = 30;
-            // }
-            /*
-            else if (irSensor[RIGHT] && !irSensor[MID] && !irSensor[LEFT])
-            {
-                currentState = TURN_RIGHT;
-                // desiredAngle = 15;
-            }
-            else if (irSensor[LEFT] && !irSensor[MID] && !irSensor[RIGHT])
-            {
-                currentState = TURN_LEFT;
-                // desiredAngle = 15;
-            }
-            break;
-            */
-           irSensor[MID] = !digitalRead(IR2);
-           irSensor[LEFT] = !digitalRead(IR1);
-           irSensor[RIGHT] = !digitalRead(IR3);
-           if (irSensor[MID]){
-                currentState = FORWARD;
-           }
+            if (!startSignal){currentState = IDLE;}
+            irSensor[MID] = !digitalRead(IR2);
+            irSensor[LEFT] = !digitalRead(IR1);
+            irSensor[RIGHT] = !digitalRead(IR3);
+            if (irSensor[MID]){currentState = FORWARD;}
            else if (irSensor[LEFT]){
                 currentState = TURN_LEFT;
                 //Serial.println("IR LEFT ON");
@@ -242,7 +220,21 @@ void motorTask(void *param)
 
            else if (irSensor[RIGHT]){
                 currentState = TURN_RIGHT;
-           }
+            }
+            break;
+
+            case MOVEMENT_45:
+                rightMotor.forward(TURN_LEFT_SPEED + 30); //GIRO
+                leftMotor.brake();
+                while(!elapsedTime(TURN_LEFT_DELAY)){}
+                rightMotor.forward(50); //AVANCE
+                leftMotor.forward(50);
+                while(!elapsedTime(105)){}
+                rightMotor.brake(); //GIRO
+                leftMotor.forward(TURN_RIGHT_SPEED + 30);
+                while(!elapsedTime(TURN_RIGHT_DELAY)){}
+                currentState = BRAKE;
+                break;
         }
         vTaskDelay(pdMS_TO_TICKS(TASK_TICKS));
     }
