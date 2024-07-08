@@ -1,4 +1,4 @@
-#ifdef RUN_LINE_SENSOR
+#if defined(RUN_SENSORS_TEST) || defined(RUN_LINE_SENSOR)
 #include "globals.h"
 #include <driver/adc.h>
 
@@ -25,9 +25,9 @@ int readLineSensorBack(adc2_channel_t channel) {
     }
 }
 
-bool checkLineSensor(int measurement,int threshold){
+bool checkLineSensor(int measurement){
   static uint8_t counter = 0;
-  if(measurement<=threshold){counter++;}
+  if(measurement<=THRESHOLD){counter++;}
   else{counter = 0;}
   return (counter >=10); 
 }
