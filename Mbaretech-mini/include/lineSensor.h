@@ -4,5 +4,5 @@
 
 void lineSensorsInit();
 int readLineSensorFront(adc1_channel_t channel);
-int readLineSensorBack(adc2_channel_t channel);
-bool checkLineSensor(int measurement,int threshold);
+int readLineSensor(adc2_channel_t channel);
+bool checkLineSensor(bool lineSensor,int measurement);

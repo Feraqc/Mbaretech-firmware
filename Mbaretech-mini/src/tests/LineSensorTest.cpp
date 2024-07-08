@@ -1,4 +1,4 @@
-#ifdef RUN_LS_SENSOR_TEST
+#ifdef RUN_LINE_SENSOR
 #include "globals.h"
 #include "lineSensor.h"
 
@@ -36,8 +36,12 @@ void lineSensorTask(void *param) {
     currentState = IDLE;
     bool lineSensor[2];
     while(true){
-        lineSensor[0] = checkLineSensor(readLineSensorFront(LINE_FRONT_LEFT),150);
-        lineSensor[1] = checkLineSensor(readLineSensorFront(LINE_FRONT_RIGHT),150);
+        lineSensor[0] = checkLineSensor(0,readLineSensor(LINE_FRONT_LEFT));
+        lineSensor[1] = checkLineSensor(1,readLineSensor(LINE_FRONT_RIGHT));
+        Serial.print(readLineSensor(LINE_FRONT_LEFT));
+        Serial.print("\t");
+        Serial.print(readLineSensor(LINE_FRONT_RIGHT));
+        Serial.print("\t");
         Serial.print(lineSensor[0]);
         Serial.print("\t");
         Serial.print(lineSensor[1]);
@@ -69,7 +73,7 @@ void lineSensorTask(void *param) {
 
         
         }
-        vTaskDelay(pdMS_TO_TICKS(100));
+        vTaskDelay(pdMS_TO_TICKS(10));
     }
 }
 
