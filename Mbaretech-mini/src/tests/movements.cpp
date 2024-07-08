@@ -1,36 +1,6 @@
 #ifdef RUN_MOVEMENTS_TEST
 #include "globals.h"
 
-void imuTask(void *param) {
-    while (true) {
-        imu.getData();
-        if (xSemaphoreTake(gyroDataMutex, portMAX_DELAY) == pdTRUE) {
-            currentAngle = imu.currentAngle;
-            xSemaphoreGive(gyroDataMutex);
-        }
-        vTaskDelay(pdMS_TO_TICKS(1));
-    }
-}
-
-bool elapsedTime(TickType_t duration) {
-    static TickType_t startTime = 0;
-    static bool firstCall = true;
-    TickType_t currentTime = xTaskGetTickCount();
-
-    if (firstCall) {
-        startTime = currentTime;
-        firstCall = false;
-    }
-
-    if ((currentTime - startTime) >= duration) {
-        startTime = currentTime;
-        firstCall = true;
-        return true;
-    }
-    else {
-        return false;
-    }
-}
 
 bool checkRotation(int rotationAngle) {
     static int initialAngle = 0;
@@ -57,18 +27,6 @@ bool checkRotation(int rotationAngle) {
 }
 
 void motorTask(void *param) {
-    typedef enum {
-        IDLE,
-        FORWARD,
-        BACKWARD,
-        TURN_LEFT,
-        TURN_RIGHT,
-        BRAKE,
-        MOVEMENT_U_LEFT,
-        MOVEMENT_U_RIGHT,
-        MOVEMENT_45,
-        SLOW_FORWARD
-    } State;
 
     State currentState;
     currentState = IDLE;
