@@ -80,7 +80,7 @@ void motorTask(void *param) {
 
     currentState = MOVEMENT_U_RIGHT;
 
-     enum initialMovement{STEP_1, STEP_2, STEP_3, STEP_4 };
+     //enum initialMovement{STEP_1, STEP_2, STEP_3, STEP_4 };
      while (true) {
 
 //        if (startSignal) {
@@ -127,17 +127,17 @@ void motorTask(void *param) {
                     Serial.println("entro");
                     //Serial.println("INITIAL MOVE");
                         Serial.println("GIRO");
-                            rightMotor.forward(TURN_LEFT_SPEED + 30); //GIRO
-                            leftMotor.brake();
+                            rightMotor.forward(TURN_LEFT_SPEED + 40); //GIRO
+                            leftMotor.backward(20);
                     while(!elapsedTime(TURN_LEFT_DELAY)){}
                             Serial.println("AVANCE");
-                            rightMotor.forward(50); //AVANCE
-                            leftMotor.forward(50);
-                    while(!elapsedTime(105)){}
+                            rightMotor.forward(45); //AVANCE
+                            leftMotor.forward(45);
+                    while(!elapsedTime(190)){}
                             Serial.println("GIRO");
-                            rightMotor.brake(); //GIRO
-                            leftMotor.forward(TURN_RIGHT_SPEED + 30);
-                    while(!elapsedTime(TURN_RIGHT_DELAY)){}
+                            rightMotor.backward(70); //GIRO
+                            leftMotor.forward(TURN_RIGHT_SPEED + 70);
+                    while(!elapsedTime(TURN_RIGHT_DELAY+20)){}
                             currentState = IDLE;
 
                     break;

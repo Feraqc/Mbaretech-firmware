@@ -1,6 +1,6 @@
 #include "globals.h" 
 
-bool dipSwitchPin[4];
+bool dipSwitch[4];
 
 Motor leftMotor(PWM_A,PIN_A0,PIN_A1,CHANNEL_LEFT);
 Motor rightMotor(PWM_B,PIN_B0,PIN_B1,CHANNEL_RIGHT);
@@ -12,44 +12,17 @@ int desiredAngle;
 bool lineSensor[4];
 
 // TASK HANDLE
-TaskHandle_t imuTaskHandle;
 TaskHandle_t stateMachineTaskHandle;
 TaskHandle_t lineSensorTaskHandle;
-
-// MUTEXES
-SemaphoreHandle_t gyroDataMutex;
-
 
 //VOLATILE VARIABLES
 //volatile State currentState = IDLE;
 volatile bool irSensor[7];
 volatile bool startSignal = false;
-volatile unsigned long encoderLeftCounter = 0;
-volatile unsigned long encoderRightCounter = 0;
-
-// ISR DEFINITION
-void  IRAM_ATTR IR1_ISR() { irSensor[0] = digitalRead(IR1); }
-void  IRAM_ATTR IR2_ISR() { irSensor[1] = digitalRead(IR2); }
-void  IRAM_ATTR IR3_ISR() { irSensor[2] = digitalRead(IR3); }
-void  IRAM_ATTR IR4_ISR() { irSensor[3] = digitalRead(IR4); }
-void  IRAM_ATTR IR5_ISR() { irSensor[4] = digitalRead(IR5); }
-void  IRAM_ATTR IR6_ISR() { irSensor[5] = digitalRead(IR6); }
-void  IRAM_ATTR IR7_ISR() { irSensor[6] = digitalRead(IR7); }
-void  IRAM_ATTR encoderLeftISR(){encoderLeftCounter++;}
-void  IRAM_ATTR encoderRightISR(){encoderRightCounter++;}
 
 void IRAM_ATTR KS_ISR(){startSignal = digitalRead(START_PIN);};
 
-//volatile State currentState;
-
-
-// Create AsyncWebServer instance on port 80
-AsyncWebServer server(80);
-// Create a WebSocket instance on port 81
-AsyncWebSocket ws("/ws");
-// Network credentials
-const char* ssid = "Pixel";     // Replace with your WiFi network name
-const char* password = "guana123"; // Replace with your WiFi password
+volatile State currentState;
 
 void setup() {
     esp_efuse_write_field_cnt(ESP_EFUSE_VDD_SPI_FORCE, 1); 
@@ -74,14 +47,6 @@ void setup() {
     pinMode(IR6, INPUT);
     pinMode(IR7, INPUT);
 
-    attachInterrupt(digitalPinToInterrupt(IR1), IR1_ISR, CHANGE);
-    attachInterrupt(digitalPinToInterrupt(IR2), IR2_ISR, CHANGE);
-    attachInterrupt(digitalPinToInterrupt(IR3), IR3_ISR, CHANGE);
-    attachInterrupt(digitalPinToInterrupt(IR4), IR4_ISR, CHANGE);
-    attachInterrupt(digitalPinToInterrupt(IR5), IR5_ISR, CHANGE);
-    attachInterrupt(digitalPinToInterrupt(IR6), IR6_ISR, CHANGE);
-    attachInterrupt(digitalPinToInterrupt(IR7), IR7_ISR, CHANGE);
-
     attachInterrupt(digitalPinToInterrupt(START_PIN), KS_ISR, CHANGE);
 
     // DIPS
@@ -93,21 +58,15 @@ void setup() {
     // Start pin
     pinMode(START_PIN, INPUT);
 
-    // Encoders
-    pinMode(ENCODER_LEFT, INPUT);
-    pinMode(ENCODER_RIGHT, INPUT);
-    //attachInterrupt(digitalPinToInterrupt(ENCODER_LEFT), encoderLeftISR, RISING);
-    //attachInterrupt(digitalPinToInterrupt(ENCODER_RIGHT), encoderRightISR, RISING);
-
-    // MUTEX
-   // gyroDataMutex = xSemaphoreCreateMutex();
-
-    xTaskCreate(stateMachineTask, "stateMachineTask", 4096, NULL, 1, &stateMachineTaskHandle);
-    //xTaskCreate(imuTask, "imuTask", 4096, NULL, 1, &imuTaskHandle);
+    #if defined(RUN_MOVEMENTS_TEST) || defined(RUN_TASK_TEST)
+        xTaskCreate(stateMachineTask, "stateMachineTask", 4096, NULL, 1, &stateMachineTaskHandle);
+    #endif 
+    
     #ifdef RUN_LINE_SENSOR
     //xTaskCreate(lineSensorTask, "lineSensorTask", 4096, NULL, 1, &lineSensorTaskHandle);
     #endif
-    //currentState = IDLE;
+
+    /*
     // Create tasks conditionally
     #ifndef RUN_GYRO_TEST
     #ifndef RUN_IR_SENSOR_TEST
@@ -124,33 +83,13 @@ void setup() {
     #endif  // RUN_LS_IR_SENSOR_TEST
     #endif  // RUN_WIFI_SENSORS_TEST
     #endif  // RUN_DRIVER_TEST
+    */
 
-    #ifdef RUN_WIFI_SENSORS_TEST
-    WiFi.begin(ssid, password);
-    while (WiFi.status() != WL_CONNECTED) {
-        delay(500);
-        Serial.println("Connecting to WiFi...");
-        Serial.println(WiFi.status());
-    }
-    Serial.println("Connected to WiFi");
-
-    // Setup WebSocket server
-    ws.onEvent(onEvent);
-    server.addHandler(&ws);
-
-    // Start server
-    server.begin();
-    Serial.println("WebSocket server started");
-    Serial.println("IP address: ");
-    Serial.println(WiFi.localIP());
-
-    xTaskCreate(webSocketTask, "WebSocketTask", 2048, NULL, 1, NULL);
-    #endif
 }
 
 
 
-
+/*
 #ifndef RUN_GYRO_TEST
 #ifndef RUN_IR_SENSOR_TEST
 #ifndef RUN_LS_IR_SENSOR_TEST
@@ -282,7 +221,7 @@ void mainTask(void *pvParameters) {
 //     }
 // }
 
-//void changeState(State newState) { currentState = newState; }
+void changeState(State newState) { currentState = newState; }
 
 void loop() {}
 
@@ -329,4 +268,5 @@ void sendSensorData() {
 void loop() {};
 
 #endif // RUN_WIFI_SENSORS_TEST
+*/
 
