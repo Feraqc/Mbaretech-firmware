@@ -65,8 +65,6 @@
 #define LINE_FRONT_RIGHT ADC2_CHANNEL_6
 #define ADC_WIDTH ADC_WIDTH_BIT_12
 
-#define THRESHOLD 250
-
 enum Sensor { LEFT, MID, RIGHT };
 
 enum State {
@@ -78,7 +76,11 @@ enum State {
     BRAKE,
     MOVEMENT_U,
     MOVEMENT_45,
-    SLOW_FORWARD
+    SLOW_FORWARD,
+    TURN_180,
+    TURN_90_LEFT,
+    AVOID_LINE
+
 };
 
 extern volatile bool irSensor[3];

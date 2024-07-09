@@ -16,18 +16,18 @@ void motorTask(void *param) {
     TickType_t currMove;
 
     while (true) {
-        if (currentState) {
-            Serial.print(currentState);
-            /*
-            Serial.print("\t");
-            Serial.print(irSensor[LEFT]);
-            Serial.print("\t");
-            Serial.print(irSensor[MID]);
-            Serial.print("\t");
-            Serial.print(irSensor[RIGHT]);
-            */
-            Serial.print("\n");
-        }
+        // if (currentState) {
+        //     Serial.print(currentState);
+        //     /*
+        //     Serial.print("\t");
+        //     Serial.print(irSensor[LEFT]);
+        //     Serial.print("\t");
+        //     Serial.print(irSensor[MID]);
+        //     Serial.print("\t");
+        //     Serial.print(irSensor[RIGHT]);
+        //     */
+        //     Serial.print("\n");
+        // }
 
         switch (currentState) {
             case FORWARD:
@@ -87,7 +87,7 @@ void motorTask(void *param) {
                 else if (!irSensor[MID]) {
                     currentState = BRAKE;
                 }
-                break;
+            break;
 
             case BACKWARD:
                 Serial.println("BACKWARD");
@@ -100,15 +100,16 @@ void motorTask(void *param) {
                 else if (elapsedTime(1000)) {
                     currentState = FORWARD;
                 }
-                break;
+            break;
 
             case IDLE:
+                Serial.println("IDLE");
                 leftMotor.brake();
                 rightMotor.brake();
-                Serial.print(digitalRead(DIPA));
-                Serial.print(digitalRead(DIPB));
-                Serial.print(digitalRead(DIPC));
-                Serial.println(digitalRead(DIPD));
+                // Serial.print(digitalRead(DIPA));
+                // Serial.print(digitalRead(DIPB));
+                // Serial.print(digitalRead(DIPC));
+                // Serial.println(digitalRead(DIPD));
                 if (startSignal) {
                     Serial.println("Changing state");
 
@@ -128,16 +129,16 @@ void motorTask(void *param) {
                     
 
                     if (!digitalRead(DIPD) & digitalRead(DIPC)) {
-                        // currentState = TURN_180;
+                        currentState = TURN_180;
                     }
                     else if (digitalRead(DIPD) & !digitalRead(DIPC)) {
                         currentState = MOVEMENT_45;
                     }
                     else if (digitalRead(DIPD) & digitalRead(DIPC)) {
-                        // currentState = ???;
+                        currentState = TURN_90_LEFT;
                     }
                 }
-                break;
+            break;
 
             case TURN_LEFT:
                 Serial.println("TURN LEFT");
@@ -157,7 +158,7 @@ void motorTask(void *param) {
                 else {
                     currentState = BRAKE;
                 }
-                break;
+            break;
 
             case TURN_RIGHT:
                 Serial.println("TURN_RIGHT");
@@ -179,7 +180,7 @@ void motorTask(void *param) {
                 // else if(checkRotation(desiredAngle)){
                 //     currentState = BRAKE;
                 // }
-                break;
+            break;
 
             case BRAKE:
                 Serial.println("BRAKE");
@@ -222,23 +223,17 @@ void motorTask(void *param) {
                         currentState = FORWARD;
                     }
                 }
-                break;
+            break;
 
             case MOVEMENT_45:
-
-                Serial.println("entro");
-                // Serial.println("INITIAL MOVE");
-                Serial.println("GIRO");
                 rightMotor.forward(TURN_LEFT_SPEED + 40);  // GIRO
                 leftMotor.backward(20);
                 while (!elapsedTime(TURN_LEFT_DELAY)) {
                 }
-                Serial.println("AVANCE");
                 rightMotor.forward(45);  // AVANCE
                 leftMotor.forward(45);
                 while (!elapsedTime(110)) {
                 }
-                Serial.println("GIRO");
                 rightMotor.backward(70);  // GIRO
                 leftMotor.forward(TURN_RIGHT_SPEED + 70);
                 while (!elapsedTime(TURN_RIGHT_DELAY + 20)) {
@@ -246,8 +241,39 @@ void motorTask(void *param) {
                 rightMotor.brake();
                 leftMotor.brake();
                 currentState = BRAKE;
+            break;
+            
+            case TURN_180:
+                Serial.println("TURN_180");
+                rightMotor.forward(TURN_LEFT_SPEED + 70);  // GIRO
+                leftMotor.backward(90);
+                while (!elapsedTime(TURN_LEFT_DELAY)) {}                
+                rightMotor.brake();  
+                leftMotor.brake();
+                currentState = BRAKE;
+            break;
 
-                break;
+            case TURN_90_LEFT:
+                Serial.println("TURN_90_LEFT");
+                rightMotor.forward(TURN_LEFT_SPEED + 30);  // GIRO
+                leftMotor.backward(20);
+                while (!elapsedTime(TURN_LEFT_DELAY)) {}
+                rightMotor.brake();  
+                leftMotor.brake();
+                currentState = BRAKE;
+            break;
+
+            case AVOID_LINE:
+                rightMotor.brake();
+                leftMotor.brake();
+                while (!elapsedTime(105)) {}
+                rightMotor.backward(60);
+                leftMotor.backward(60);
+                while (!elapsedTime(105)) {}
+                rightMotor.brake();
+                leftMotor.brake();
+                currentState = TURN_180;
+            break;
         }
         vTaskDelay(pdMS_TO_TICKS(TASK_TICKS));
     }
