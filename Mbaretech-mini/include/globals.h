@@ -33,8 +33,6 @@
 #define SDA_PIN 10
 #define INT_PIN 11
 
-#define LINE_LEFT 15
-#define LINE_RIGHT 17
 
 // MOTOR A
 #define PWM_A 12
@@ -78,7 +76,11 @@ enum State {
     BRAKE,
     MOVEMENT_U,
     MOVEMENT_45,
-    SLOW_FORWARD
+    SLOW_FORWARD,
+    TURN_180,
+    TURN_90_LEFT,
+    AVOID_LINE
+
 };
 
 extern volatile bool irSensor[3];
