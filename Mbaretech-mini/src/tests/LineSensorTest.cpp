@@ -1,4 +1,4 @@
-#ifdef RUN_LS_SENSOR_TEST
+#ifdef RUN_LINE_SENSOR
 #include "globals.h"
 #include "lineSensor.h"
 
