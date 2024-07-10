@@ -51,12 +51,12 @@ void stateMachineTask(void *param) {
                     }
                     else {
                         leftMotor.forward(FORWARD_90);
-                        rightMotor.forward(FORWARD_42);
+                        rightMotor.forward(FORWARD_70);
                         while (
                             !elapsedTime(SHORT_RIGHT_DELAY)) {  // 80 ms en mb2
                         }
-                        rightMotor.forward(FORWARD_60);
-                        leftMotor.forward(FORWARD_49);            // probar mas
+                        rightMotor.forward(FORWARD_90);
+                        leftMotor.forward(FORWARD_70);            // probar mas
                         while (!elapsedTime(SHORT_LEFT_DELAY)) {  // 80 ms en
                                                                   // mb2
                         }
@@ -77,6 +77,8 @@ void stateMachineTask(void *param) {
                 }
 
                 else if (!irSensor[TOP_MID]) {
+                    leftMotor.brake();
+                    rightMotor.brake();
                     currentState = BRAKE;
                 }
 
@@ -86,8 +88,8 @@ void stateMachineTask(void *param) {
 #ifdef DEBUG
                 Serial.println("State brake");
 #endif
-                leftMotor.brake();
-                rightMotor.brake();
+                //leftMotor.brake();
+                //rightMotor.brake();
                 if (!startSignal) {
                     currentState = IDLE;
                 }
@@ -115,6 +117,25 @@ void stateMachineTask(void *param) {
                 else if (irSensor[SIDE_RIGHT]) {  // irSensor[SIDE_RIGHT]
                     currentState = TURN_RIGHT_90;
                 }
+                else{
+                    if (turkish){
+                        currTurkish = xTaskGetTickCount();
+                        if (currTurkish - lastTurkish >= TURKISH_TIME) {
+                            #ifdef DEBUG
+                            Serial.print("MOVING A LITTLE");
+                            #endif
+                            rightMotor.forward(FORWARD_40);
+                            leftMotor.forward(FORWARD_40);
+                            while(!elapsedTime(TURKISH_DELAY)){}
+                            rightMotor.brake();
+                            leftMotor.brake();
+                            lastTurkish = xTaskGetTickCount();
+                        }
+                    }
+                    else{
+                        currentState = FORWARD;
+                    }
+                }
                 break;
 
             case TURN_LEFT_45:
@@ -128,6 +149,8 @@ void stateMachineTask(void *param) {
                         #endif
                     };
                     lastLeft45 = xTaskGetTickCount();
+                    leftMotor.brake();
+                    rightMotor.brake();
                 }
 
                 if (!startSignal) {
@@ -150,6 +173,8 @@ void stateMachineTask(void *param) {
                         #endif
                     };
                     lastRight45 = xTaskGetTickCount();
+                    leftMotor.brake();
+                    rightMotor.brake();
                 }
 
                 if (!startSignal) {
@@ -171,6 +196,8 @@ void stateMachineTask(void *param) {
                         #endif
                     };
                     lastLeft90 = xTaskGetTickCount();
+                    leftMotor.brake();
+                    rightMotor.brake();
                 }
 
                 if (!startSignal) {
@@ -193,6 +220,8 @@ void stateMachineTask(void *param) {
                         #endif
                     };
                     lastRight90 = xTaskGetTickCount();
+                    leftMotor.brake();
+                    rightMotor.brake();
                 }
 
                 if (!startSignal) {
@@ -285,6 +314,8 @@ void stateMachineTask(void *param) {
                     Serial.println("Turning left");
                     #endif
                 };
+                leftMotor.brake();
+                rightMotor.brake();
                 currentState = BRAKE;
                 break;
         }

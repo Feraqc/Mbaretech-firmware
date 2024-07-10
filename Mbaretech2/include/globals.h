@@ -109,6 +109,9 @@
 
 #define THRESHOLD 150
 
+#define TURKISH_TIME 2000
+#define TURKISH_DELAY 75
+
 extern TickType_t lastLeft45;
 extern TickType_t lastRight45;
 extern TickType_t lastLeft90;
