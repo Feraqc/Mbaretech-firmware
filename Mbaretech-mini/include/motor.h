@@ -50,10 +50,10 @@ class Motor{
             maxBackwardPulse = maxBackwardPulse_;
             minBackwarPulse = minBackwarPulse_;
 
-            long lastForward = 0;
-            long currForward = 120;
-            long lastReverse = 0;
-            long currReverse = 120;
+            lastForward = -120;
+            currForward = 0;
+            lastReverse = -120;
+            currReverse = 0;
             
         }
 
