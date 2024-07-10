@@ -36,9 +36,9 @@
 #define NUM_SAMPLES 10
 
 // MOTOR A
-#define PWM_A 12
+#define PWM_A 13
 // MOTORB
-#define PWM_B 13
+#define PWM_B 12
 
 #define THRESHOLD 200  // veloz tiene que ser mas de 400
 // 250 del lento
@@ -46,6 +46,7 @@
 // SPEED AND TIMERS
 
 #define FORWARD_SPEED 15  // percent
+#define BACKWARD_SPEED 20 
 #define MAX_SPEED 100
 #define ALMOST_MAX_SPEED 98
 #define MIN_SPEED 0

@@ -148,6 +148,7 @@ bool readIrSensor(int irSensor){
         avg = sum/NUM_SAMPLES;
         return (avg > 0.5);
     }
+    return 0;
 }
 
 

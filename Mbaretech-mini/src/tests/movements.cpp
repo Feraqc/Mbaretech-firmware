@@ -2,47 +2,48 @@
 #include "globals.h"
 
 
-bool checkRotation(int rotationAngle) {
-    static int initialAngle = 0;
-    int currentAngleRotation = 0;
-    static bool firstCall = true;
+// bool checkRotation(int rotationAngle) {
+//     static int initialAngle = 0;
+//     int currentAngleRotation = 0;
+//     static bool firstCall = true;
 
-    if (xSemaphoreTake(gyroDataMutex, portMAX_DELAY) == pdTRUE) {
-        if (firstCall) {
-            firstCall = false;
-            initialAngle = currentAngle;  // Initialize initialAngle only once
-        }
-        currentAngleRotation = currentAngle;
-        xSemaphoreGive(gyroDataMutex);
-    }
+//     if (xSemaphoreTake(gyroDataMutex, portMAX_DELAY) == pdTRUE) {
+//         if (firstCall) {
+//             firstCall = false;
+//             initialAngle = currentAngle;  // Initialize initialAngle only once
+//         }
+//         currentAngleRotation = currentAngle;
+//         xSemaphoreGive(gyroDataMutex);
+//     }
 
-    if (abs(currentAngleRotation - initialAngle) >= rotationAngle) {
-        initialAngle = currentAngleRotation;
-        firstCall = true;
-        return true;
-    }
-    else {
-        return false;
-    }
-}
+//     if (abs(currentAngleRotation - initialAngle) >= rotationAngle) {
+//         initialAngle = currentAngleRotation;
+//         firstCall = true;
+//         return true;
+//     }
+//     else {
+//         return false;
+//     }
+// }
 
 void motorTask(void *param) {
 
     State currentState;
-    currentState = IDLE;
-    int desiredAngle = 0;
+    currentState = FORWARD;
 
     TickType_t lastLeft = 0;
     TickType_t lastRight = 0;
     TickType_t currMove;
 
-    currentState = MOVEMENT_U_RIGHT;
-
-     //enum initialMovement{STEP_1, STEP_2, STEP_3, STEP_4 };
      while (true) {
-
-//        if (startSignal) {
+        if (startSignal) {
             switch (currentState){
+                case FORWARD:
+                    leftMotor.forward(FORWARD_SPEED);
+                    rightMotor.forward(FORWARD_SPEED - 5);
+                    while(!elapsedTime(500)){}
+                    while(true){}
+                break;
                 case TURN_RIGHT:
                     Serial.println("Entering turn right");
                     
@@ -65,20 +66,20 @@ void motorTask(void *param) {
                     Serial.println("Getting out of turn right");
                     break;
 
-                case MOVEMENT_U_LEFT:
-                    while(!elapsedTime(2500)){}
-                    rightMotor.forward(0); //AVANCE
-                    leftMotor.forward(45);
-                    while(!elapsedTime(950)){}
-                    currentState = IDLE;
-                    break;
-                case MOVEMENT_U_RIGHT:
-                    while(!elapsedTime(2500)){}
-                    rightMotor.forward(0); //AVANCE
-                    leftMotor.forward(95);
-                    while(!elapsedTime(950)){}
-                    currentState = IDLE;
-                    break;
+                // case MOVEMENT_U_LEFT:
+                //     while(!elapsedTime(2500)){}
+                //     rightMotor.forward(0); //AVANCE
+                //     leftMotor.forward(45);
+                //     while(!elapsedTime(950)){}
+                //     currentState = IDLE;
+                //     break;
+                // case MOVEMENT_U_RIGHT:
+                //     while(!elapsedTime(2500)){}
+                //     rightMotor.forward(0); //AVANCE
+                //     leftMotor.forward(95);
+                //     while(!elapsedTime(950)){}
+                //     currentState = IDLE;
+                //     break;
 
                 case MOVEMENT_45:
                     while(!elapsedTime(2500)){}
@@ -106,8 +107,10 @@ void motorTask(void *param) {
                         leftMotor.brake();
                     break;
                 }
+        }
         vTaskDelay(pdMS_TO_TICKS(10));
     }
 }
+void loop() {};
 
 #endif
