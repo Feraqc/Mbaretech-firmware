@@ -1,4 +1,4 @@
-#ifdef RUN_LINE_SENSOR
+#if defined(RUN_SENSORS_TEST) || defined(RUN_LINE_SENSOR)
 #include "globals.h"
 #include <driver/adc.h>
 #include "lineSensor.h"
@@ -13,11 +13,7 @@ void lineSensorsInit(){
     adc2_config_channel_atten(ADC2_CHANNEL_6, ADC_ATTEN_DB_12);
 }
 
-int readLineSensorFront(adc1_channel_t channel){
-  return adc1_get_raw(channel);
-}
-
-int readLineSensor(adc2_channel_t channel) {
+int readLineSensorBack(adc2_channel_t channel) {
     int adc_reading;
     if (adc2_get_raw(channel, ADC_WIDTH, &adc_reading) == ESP_OK) {
         return adc_reading;

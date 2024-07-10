@@ -1,25 +1,6 @@
 #ifdef RUN_MOVEMENTS_TEST
 #include "globals.h"
 
-bool elapsedTime(TickType_t duration) {
-    static TickType_t startTime = 0;
-    static bool firstCall = true;
-    TickType_t currentTime = xTaskGetTickCount();
-
-    if (firstCall) {
-        startTime = currentTime;
-        firstCall = false;
-    }
-    // Serial.println(currentTime - startTime);
-    if ((currentTime - startTime) >= duration) {
-        startTime = currentTime;
-        firstCall = true;
-        return true;
-    }
-    else {
-        return false;
-    }
-}
 
 void stateMachineTask(void *param) {
 
