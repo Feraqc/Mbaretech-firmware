@@ -53,12 +53,7 @@ void motorTask(void *param) {
 
                 if (!startSignal) {
                     currentState = IDLE;
-                } /*
-                 else if (elapsedTime(1000))
-                 {
-                     currentState = TURN_RIGHT;
-                 }
-                 */
+                }
                 else if (irSensor[LEFT] & !irSensor[RIGHT]) {
                     leftMotor.forward(ALMOST_MAX_SPEED);
                     rightMotor.forward(MAX_SPEED);
@@ -91,15 +86,14 @@ void motorTask(void *param) {
 
             case BACKWARD:
                 Serial.println("BACKWARD");
-                rightMotor.backward(MIN_SPEED);
-                leftMotor.backward(MIN_SPEED);
+                rightMotor.backward(BACKWARD_SPEED);
+                leftMotor.backward(BACKWARD_SPEED);
 
                 if (!startSignal) {
                     currentState = IDLE;
                 }
-                else if (elapsedTime(1000)) {
-                    currentState = FORWARD;
-                }
+                currentState = BRAKE;
+                
             break;
 
             case IDLE:
@@ -158,6 +152,8 @@ void motorTask(void *param) {
                 else {
                     currentState = BRAKE;
                 }
+                rightMotor.brake();
+                leftMotor.brake();
             break;
 
             case TURN_RIGHT:
@@ -175,6 +171,8 @@ void motorTask(void *param) {
                 if (!startSignal) {
                     currentState = IDLE;
                 }
+                rightMotor.brake();
+                leftMotor.brake();
                 currentState = BRAKE;
 
                 // else if(checkRotation(desiredAngle)){
@@ -211,7 +209,7 @@ void motorTask(void *param) {
                         currTurkish = xTaskGetTickCount();
                         if (currTurkish - lastTurkish >= TURKISH_TIME) {
                             Serial.print("MOVING A LITTLE");
-                            rightMotor.forward(15);
+                            rightMotor.forward(15); //ajustar si se va derecho
                             leftMotor.forward(0);
                             while(!elapsedTime(120)){}
                             rightMotor.brake();
@@ -264,11 +262,8 @@ void motorTask(void *param) {
             break;
 
             case AVOID_LINE:
-                rightMotor.brake();
-                leftMotor.brake();
-                while (!elapsedTime(105)) {}
-                rightMotor.backward(60);
-                leftMotor.backward(60);
+                rightMotor.backward(20);
+                leftMotor.backward(20);
                 while (!elapsedTime(105)) {}
                 rightMotor.brake();
                 leftMotor.brake();
