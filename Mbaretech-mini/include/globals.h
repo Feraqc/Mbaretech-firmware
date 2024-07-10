@@ -33,6 +33,7 @@
 #define SDA_PIN 10
 #define INT_PIN 11
 
+#define NUM_SAMPLES 10
 
 // MOTOR A
 #define PWM_A 12
@@ -95,6 +96,9 @@ extern Motor rightMotor;
 extern int currentAngle;
 
 bool elapsedTime(TickType_t duration);
+int readLineSensor(adc2_channel_t channel);
+bool checkLineSensor(bool lineSensor,int measurement);
+bool readIrSensor(int irSensor);
 
 void imuTask(void *param);
 void mainTask(void *param);

@@ -55,9 +55,9 @@ void setup() {
 
 void lineSensorsInit(){
 
-    adc1_config_width(ADC_WIDTH);
-    adc1_config_channel_atten(ADC1_CHANNEL_2, ADC_ATTEN_DB_12);
-    adc1_config_channel_atten(ADC1_CHANNEL_7, ADC_ATTEN_DB_12);
+    // adc1_config_width(ADC_WIDTH);
+    // adc1_config_channel_atten(ADC1_CHANNEL_2, ADC_ATTEN_DB_12);
+    // adc1_config_channel_atten(ADC1_CHANNEL_7, ADC_ATTEN_DB_12);
     
     adc2_config_channel_atten(ADC2_CHANNEL_8, ADC_ATTEN_DB_12);
     adc2_config_channel_atten(ADC2_CHANNEL_9, ADC_ATTEN_DB_12);
@@ -67,11 +67,28 @@ int readLineSensorFront(adc1_channel_t channel){
   return adc1_get_raw(channel);
 }
 
-bool checkLineSensor(int measurement,int threshold){
-  static uint8_t counter = 0;
-  if(measurement<=threshold){counter++;}
-  else{counter = 0;}
-  return (counter >=10); 
+int readLineSensor(adc2_channel_t channel) {
+    int adc_reading;
+    if (adc2_get_raw(channel, ADC_WIDTH, &adc_reading) == ESP_OK) {
+        return adc_reading;
+    } else {
+        return 500; 
+    }
+}
+
+bool checkLineSensor(bool lineSensor,int measurement){
+  static uint8_t counterLeft = 0;
+  static uint8_t counterRight = 0;
+  if(lineSensor){
+    if(measurement <= THRESHOLD){counterLeft++;}
+    else{counterLeft = 0;}
+    return (counterLeft >=3);
+  }
+  else{
+    if(measurement <= THRESHOLD){counterRight++;}
+    else{counterRight = 0;}
+    return (counterRight >=3);
+  }
 }
 
 bool elapsedTime(TickType_t duration) {
@@ -91,6 +108,45 @@ bool elapsedTime(TickType_t duration) {
     }
     else {
         return false;
+    }
+}
+
+bool readIrSensor(int irSensor){
+    static int samplesIzq[NUM_SAMPLES] = {0};
+    static int samplesMid[NUM_SAMPLES] = {0};
+    static int samplesDer[NUM_SAMPLES] = {0};
+    int sum = 0;
+    float avg = 0;
+
+    if(irSensor == IR1){
+        for(int i=0;i<NUM_SAMPLES-1;i++){
+        samplesIzq[i] =samplesIzq[i+1];
+        sum += samplesIzq[i];
+        }
+        samplesIzq[NUM_SAMPLES-1] = !digitalRead(irSensor);
+        sum += samplesIzq[NUM_SAMPLES-1];
+        avg = sum/NUM_SAMPLES;
+        return (avg > 0.5);
+    }
+    else if(irSensor == IR3){
+        for(int i=0;i<NUM_SAMPLES-1;i++){
+        samplesDer[i] =samplesDer[i+1];
+        sum += samplesDer[i];
+        }
+        samplesDer[NUM_SAMPLES-1] = !digitalRead(irSensor);
+        sum += samplesDer[NUM_SAMPLES-1];
+        avg = sum/NUM_SAMPLES;
+        return (avg > 0.5);
+    }
+    else if(irSensor == IR2){
+        for(int i=0;i<NUM_SAMPLES-1;i++){
+        samplesMid[i] =samplesMid[i+1];
+        sum += samplesMid[i];
+        }
+        samplesMid[NUM_SAMPLES-1] = !digitalRead(irSensor);
+        sum += samplesMid[NUM_SAMPLES-1];
+        avg = sum/NUM_SAMPLES;
+        return (avg > 0.5);
     }
 }
 
