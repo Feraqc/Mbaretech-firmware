@@ -6,6 +6,7 @@ bool turkish = false;
 
 TickType_t currTurkish = 0;
 TickType_t lastTurkish = 0;
+TickType_t forwardStarted = 0;
 
 void motorTask(void *param) {
     State currentState;
@@ -31,6 +32,7 @@ void motorTask(void *param) {
 
         switch (currentState) {
             case FORWARD:
+                currMove = xTaskGetTickCount();
                 Serial.println("FORWARD");
                 if (!snake) {
                     rightMotor.forward(FORWARD_SPEED);
@@ -63,7 +65,7 @@ void motorTask(void *param) {
                     rightMotor.forward(ALMOST_MAX_SPEED);
                 }
 
-                else if (irSensor[LEFT] & irSensor[RIGHT]) {
+                else if ((irSensor[LEFT] & irSensor[RIGHT]) || ((currMove - forwardStarted) >= 2000)) { // ver cuanto tiempo es
                     if (!snake) {
                         leftMotor.forward(MAX_SPEED);
                         rightMotor.forward(MAX_SPEED);
@@ -81,6 +83,7 @@ void motorTask(void *param) {
                 }
                 else if (!irSensor[MID]) {
                     currentState = BRAKE;
+                    forwardStarted = xTaskGetTickCount();
                 }
             break;
 
@@ -116,9 +119,11 @@ void motorTask(void *param) {
                                                    // las combinaciones
                         snake = true;
                         currentState = FORWARD;
+                        forwardStarted = xTaskGetTickCount();
                     }
                     else{
                         currentState = FORWARD;
+                        forwardStarted = xTaskGetTickCount();
                     }
                     
 
@@ -194,6 +199,7 @@ void motorTask(void *param) {
                 irSensor[RIGHT] = !digitalRead(IR3);
                 if (irSensor[MID]) {
                     currentState = FORWARD;
+                    forwardStarted = xTaskGetTickCount();
                 }
                 else if (irSensor[LEFT]) {
                     currentState = TURN_LEFT;
@@ -219,6 +225,7 @@ void motorTask(void *param) {
                     }
                     else {
                         currentState = FORWARD;
+                        forwardStarted = xTaskGetTickCount();
                     }
                 }
             break;
