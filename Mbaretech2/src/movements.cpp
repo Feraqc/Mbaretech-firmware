@@ -34,46 +34,34 @@ void stateMachineTask(void *param) {
                     if (!startSignal) {
                         currentState = IDLE;
                     }
+                    
                     if(digitalRead(DIPA)){
-                        irSensor[SIDE_LEFT] = !digitalRead(IR1);
-                        irSensor[SIDE_RIGHT] = !digitalRead(IR7);
-                        if (irSensor[SIDE_LEFT]) {  // irSensor[SIDE_LEFT]
-                            currentState = TURN_LEFT_90;
-                        }
-                        else if (irSensor[SIDE_RIGHT]) {  // irSensor[SIDE_RIGHT]
-                        currentState = TURN_RIGHT_90;
-                        }
+                        currentState = TURKISH;
                     }
                     else if(digitalRead(DIPB)){
-                        irSensor[TOP_LEFT] = !digitalRead(IR3);
-                        irSensor[TOP_RIGHT] = !digitalRead(IR5);
-                        if (irSensor[TOP_LEFT]) {  // irSensor[TOP_LEFT]
-                            currentState = TURN_LEFT_45;
-                        }
-                        else if (irSensor[TOP_RIGHT]) {  // irSensor[TOP_RIGHT]
-                            currentState = TURN_RIGHT_45;
-                        }
+                        // irSensor[TOP_LEFT] = !digitalRead(IR3);
+                        // irSensor[TOP_RIGHT] = !digitalRead(IR5);
+                        // if (irSensor[TOP_LEFT]) {  // irSensor[TOP_LEFT]
+                        //     currentState = TURN_LEFT_45;
+                        // }
+                        // else if (irSensor[TOP_RIGHT]) {  // irSensor[TOP_RIGHT]
+                        //     currentState = TURN_RIGHT_45;
+                        // }
+
+                        currentState = MOVEMENT_45;
                     }
                     else if(digitalRead(DIPC)){
                         irSensor[SHORT_LEFT] = !digitalRead(IR2);
                         irSensor[SHORT_RIGHT] = !digitalRead(IR6);
                         if (irSensor[SHORT_LEFT] & !irSensor[SHORT_RIGHT]) {
-                            leftMotor.forward(FORWARD_60);
-                            rightMotor.forward(FORWARD_49);
-                            while (!elapsedTime(80)) {  // 80 ms en mb2
-                                            }
-                            currentState = BRAKE;
+                            currentState = FORWARD_LEFT;
                         }
                         else if (!irSensor[SHORT_LEFT] & irSensor[SHORT_RIGHT]) {
-                            leftMotor.forward(FORWARD_90);
-                            rightMotor.forward(FORWARD_42);
-                            while (!elapsedTime(80)) {  // 80 ms en mb2
-                                           }
-                            currentState = BRAKE;
+                            currentState = FORWARD_RIGHT;
                         }
                     }
                     else if(digitalRead(DIPD)){
-                        currentState = TURN_180;
+                        currentState = SNAKE;
                     }
 
                     break;
@@ -161,8 +149,8 @@ void stateMachineTask(void *param) {
 
                 case FORWARD_RIGHT:
                     rightMotor.forward(FORWARD_42);
-                    leftMotor.forward(FORWARD_60);
-                    while (!elapsedTime(SHORT_RIGHT_DELAY)) { //80 ms en mb2
+                    leftMotor.forward(FORWARD_90);
+                    while (!elapsedTime(80)) { //80 ms en mb2
                     }
                     Serial.println("BRAKE");
                     rightMotor.brake();
@@ -172,9 +160,9 @@ void stateMachineTask(void *param) {
                     break;
 
                 case FORWARD_LEFT:
-                    rightMotor.forward(FORWARD_60);
+                    rightMotor.forward(FORWARD_90);
                     leftMotor.forward(FORWARD_49);
-                    while (!elapsedTime(SHORT_LEFT_DELAY)) { //80 ms en mb2
+                    while (!elapsedTime(80)) { //80 ms en mb2
                     }
                     Serial.println("BRAKE");
                     rightMotor.brake();
@@ -186,16 +174,16 @@ void stateMachineTask(void *param) {
                 case SNAKE:
                     leftMotor.forward(FORWARD_90);
                     rightMotor.forward(FORWARD_42);
-                    while (!elapsedTime(SHORT_RIGHT_DELAY)) { //80 ms en mb2
+                    while (!elapsedTime(80)) { //80 ms en mb2
                     }
-                    rightMotor.forward(FORWARD_60);
+                    rightMotor.forward(FORWARD_90);
                     leftMotor.forward(FORWARD_49);
-                    while (!elapsedTime(SHORT_LEFT_DELAY)) { //80 ms en mb2
+                    while (!elapsedTime(80)) { //80 ms en mb2
                     }
                     Serial.println("BRAKE");
                     rightMotor.brake();
                     leftMotor.brake();
-                    while (!elapsedTime(1000)) {
+                    while (!elapsedTime(1500)) {
                     }
                     break;
                 
@@ -210,7 +198,36 @@ void stateMachineTask(void *param) {
                     currentState = IDLE;
 
                 break;
-            }
+
+                case MOVEMENT_45:
+                    Serial.println("TURN R 45");
+                    rightMotor.backward(80);
+                    leftMotor.forward(80);
+                    while (!elapsedTime(70)) {
+                        #ifdef DEBUG
+                        Serial.println("Turning right");
+                        #endif
+                    }
+                    
+                    rightMotor.forward(FORWARD_40);  // AVANCE
+                    leftMotor.forward(FORWARD_40);
+                    while (!elapsedTime(140)) {  // Ajustar, en asuncion 250 por ahi era
+                                            }
+
+                    rightMotor.forward(80);
+                    leftMotor.backward(80);
+                    while (!elapsedTime(95)) {
+                    }
+                    while (!elapsedTime(TURN_LEFT_90_DELAY)) {
+                        #ifdef DEBUG
+                        Serial.println("TURN L 90");
+                        #endif
+                    };
+
+                    rightMotor.brake();
+                    leftMotor.brake();
+                    currentState = BRAKE;
+                }
             }
         else{
             Serial.println("Waiting signal");
