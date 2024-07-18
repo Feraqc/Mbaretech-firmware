@@ -20,6 +20,9 @@
 // Defines
 #define ADC_WIDTH ADC_WIDTH_BIT_12
 
+
+
+#ifdef MBARETECH_2
 #define IR1 39
 #define IR2 40
 #define IR3 38
@@ -27,6 +30,16 @@
 #define IR5 5
 #define IR6 18
 #define IR7 17
+#endif
+
+#ifdef MBARETECH_1
+//#define IR1 39
+#define IR2 7 // short left
+#define IR3 4 //top left
+#define IR4 17 //top md
+#define IR5 40 //top right
+#define IR6 6 // short right
+#endif
 
 #define DIPA 42
 #define DIPB 2
@@ -54,63 +67,68 @@
 // Los valores no comentados son sugerencias para brasil
 // Probar y ajustar para ambos bots
 #ifdef MBARETECH_2
-#define TURN_LEFT_SPEED 60 //percertage
-#define LAST_LEFT_45_TIMER 50 //100
-#define TURN_LEFT_45_DELAY 25 //40
+#define TURN_LEFT_SPEED 80 //percertage
+#define LAST_LEFT_45_TIMER 150 //100
+#define TURN_LEFT_45_DELAY 45//55//70 //40
 
-#define LAST_LEFT_90_TIMER 140 //230
-#define TURN_LEFT_90_DELAY 65 //105
+#define LAST_LEFT_90_TIMER 200 //230
+#define TURN_LEFT_90_DELAY 65//75 //contra charizard tenia 95 y se pasaba //105
 
-#define TURN_LEFT_180_DELAY 150 // ajustar, simplemente demostrativo
+#define TURN_LEFT_180_DELAY 170 // ajustar, simplemente demostrativo
 
-#define TURN_RIGHT_SPEED 60
-#define LAST_RIGHT_45_TIMER 50 //110
-#define TURN_RIGHT_45_DELAY 25 //50
+#define TURN_RIGHT_SPEED 80
+#define LAST_RIGHT_45_TIMER 150 //110
+#define TURN_RIGHT_45_DELAY 45//55 //estaba 70 //50
 
-#define LAST_RIGHT_90_TIMER 160 //250
-#define TURN_RIGHT_90_DELAY 75 //125
+#define LAST_RIGHT_90_TIMER 200 //250
+#define TURN_RIGHT_90_DELAY 65//75 //125 //Contra charizar tenia 95 pero no vimos el giro
 
-#define SHORT_RIGHT_DELAY  100 //140
-#define SHORT_LEFT_DELAY 45 //70
+#define SHORT_RIGHT_DELAY  15 //140
+#define SHORT_LEFT_DELAY 15 //70
+#define THRESHOLD 169
+
+#define TURKISH_TIME 2000
+#define TURKISH_DELAY 75
 #endif
 
 #ifdef MBARETECH_1
-#define TURN_LEFT_SPEED 60 //percertage
-#define LAST_LEFT_45_TIMER 50 //100
-#define TURN_LEFT_45_DELAY 25 //40
+#define TURN_LEFT_SPEED 80 //percertage
+#define LAST_LEFT_45_TIMER 80 //100
+#define TURN_LEFT_45_DELAY 40 //40
 
-#define LAST_LEFT_90_TIMER 140 //230
-#define TURN_LEFT_90_DELAY 65 //105
+#define LAST_LEFT_90_TIMER 190 //230
+#define TURN_LEFT_90_DELAY 70 //105
 
 #define TURN_LEFT_180_DELAY 150 // ajustar, simplemente demostrativo
 
-#define TURN_RIGHT_SPEED 60
-#define LAST_RIGHT_45_TIMER 50 //110
-#define TURN_RIGHT_45_DELAY 25 //50
+#define TURN_RIGHT_SPEED 80
+#define LAST_RIGHT_45_TIMER 100 //110
+#define TURN_RIGHT_45_DELAY 50 //50
 
-#define LAST_RIGHT_90_TIMER 160 //250
-#define TURN_RIGHT_90_DELAY 75 //125
+#define LAST_RIGHT_90_TIMER 190 //250
+#define TURN_RIGHT_90_DELAY 90 //125
 
-#define SHORT_RIGHT_DELAY  100 //140
-#define SHORT_LEFT_DELAY 45 //70
+#define SHORT_RIGHT_DELAY  10 //140
+#define SHORT_LEFT_DELAY 10 //70
+#define THRESHOLD 1400
+
+#define TURKISH_TIME 2000
+#define TURKISH_DELAY 30
 #endif
 
-#define MAX_SPEED 85 
+#define MAX_SPEED 100 
 // En el codigo viejo con 100% patinaba, usabamos 90% en asuncion
 // En brasil debe ser menos, le pongo 85 por el momento
 // Probar si se puede ser 100% o mas de 85
 
 #define FORWARD_90 90
+#define FORWARD_80 80
 #define FORWARD_70 70
 #define FORWARD_60 60
 #define FORWARD_49 49
 #define FORWARD_42 42
 #define FORWARD_40 40
 
-#define THRESHOLD 150
-
-#define TURKISH_TIME 2000
-#define TURKISH_DELAY 75
 
 extern TickType_t lastLeft45;
 extern TickType_t lastRight45;
@@ -149,6 +167,9 @@ enum State {
     MOVEMENT_45,
     TURN_180,
     BRAKE,
+    SHORT_LEFT_MOVE,
+    SHORT_RIGHT_MOVE,
+    LINE_RETREAT,
     INITIAL_MOVEMENT
 };
 
@@ -157,6 +178,8 @@ extern volatile State currentState;
 //TASK HANDLERS
 extern TaskHandle_t stateMachineTaskHandle;
 extern TaskHandle_t lineSensorTaskHandle;
+
+extern bool fast_enemy;
 
 // TASKS
 void stateMachineTask(void *param);

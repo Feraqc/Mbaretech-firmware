@@ -29,6 +29,6 @@ bool checkLineSensor(int measurement){
   static uint8_t counter = 0;
   if(measurement<=THRESHOLD){counter++;}
   else{counter = 0;}
-  return (counter >=10); 
+  return (counter >=7); // 20 es mucho con 169 //con  10 es un 50/50
 }
 #endif
