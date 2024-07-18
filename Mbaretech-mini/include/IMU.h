@@ -7,9 +7,10 @@
 #include <I2Cdev.h>
 #include <MPU6050_6Axis_MotionApps20.h>
 #include <Wire.h>
-      
-#define SDA 15
-#define SCL 16
+
+#define SCL_PIN 9
+#define SDA_PIN 10
+#define INT_PIN 11
 
 class IMU{
   public:
@@ -41,7 +42,7 @@ class IMU{
     }
 
     void begin(){
-      Wire.setPins(SDA,SCL);
+      Wire.setPins(SDA_PIN,SCL_PIN);
       Wire.begin();
       Wire.setClock(400000);
       bool dmpReady = false;
@@ -58,13 +59,13 @@ class IMU{
       mpu.setXGyroOffset(-96);
       mpu.setYGyroOffset(-107);
       mpu.setZGyroOffset(-12);
-      mpu.setXAccelOffset(-5552);
-      mpu.setYAccelOffset(7886);
-      mpu.setZAccelOffset(11392);
+      mpu.setXAccelOffset(-2654);
+      mpu.setYAccelOffset(-10);
+      mpu.setZAccelOffset(31);
       
       if (devStatus == 0) {
-        mpu.CalibrateAccel(15);
-        mpu.CalibrateGyro(15);
+        mpu.CalibrateAccel(6);
+        mpu.CalibrateGyro(6);
         mpu.PrintActiveOffsets();
         mpu.setDMPEnabled(true);
         dmpReady = true;
