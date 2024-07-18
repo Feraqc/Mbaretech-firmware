@@ -1,6 +1,7 @@
 #ifdef RUN_MOVEMENTS_TEST
 #include "globals.h"
 
+// TO DO tener todo en macro y bien estrucutrado nuevamente
 
 void stateMachineTask(void *param) {
 
