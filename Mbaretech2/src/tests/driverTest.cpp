@@ -7,23 +7,30 @@ void loop() {
 
     //leftMotor.setSpeed(0.9*1024);
 
-    Serial.println("Setting motors to minimum pulse width");
-    leftMotor.reverse(75);
-    rightMotor.reverse(75);
+    Serial.println("Setting motors to 20 backward");
+    leftMotor.backward(20);
+    rightMotor.backward(20);
 
     delay(2000); // Wait for 2 seconds
 
     // Test the motors with middle pulse width
-    Serial.println("Setting motors to middle pulse width");
+    Serial.println("Setting motors to brake");
     leftMotor.brake();
     rightMotor.brake();
 
     delay(2000); // Wait for 2 seconds
 
     // Test the motors with maximum pulse width
-    Serial.println("Setting motors to maximum pulse width");
-    leftMotor.forward(70);
-    rightMotor.forward(70);
+    Serial.println("Setting motors to 20 forward");
+    leftMotor.forward(20);
+    rightMotor.forward(20);
+
+    delay(2000); // Wait for 2 seconds
+
+    // Test the motors with middle pulse width
+    Serial.println("Setting motors to brake");
+    leftMotor.brake();
+    rightMotor.brake();
 
     delay(2000); // Wait for 2 seconds
 }

@@ -1,4 +1,5 @@
 #include "globals.h" 
+#include "bluetoothComm.h"
 
 bool dipSwitch[4];
 
@@ -28,15 +29,19 @@ void IRAM_ATTR KS_ISR(){startSignal = digitalRead(START_PIN);};
 volatile State currentState;
 
 void setup() {
-    //esp_efuse_write_field_cnt(ESP_EFUSE_VDD_SPI_FORCE, 1); 
+    esp_efuse_write_field_cnt(ESP_EFUSE_VDD_SPI_FORCE, 1); 
+
+    BLE_UART_Init("MBARETECH");
+
     // Initialize Serial communication
     #ifdef DEBUG
-        Serial.begin(115200);
+    Serial.begin(115200);
     #endif
+    
 
     // Motors
-    rightMotor.begin();
-    leftMotor.begin();
+    //rightMotor.begin();
+    //leftMotor.begin();
 
     #ifdef RUN_LINE_SENSOR
     // Line sensors 
@@ -62,15 +67,16 @@ void setup() {
     pinMode(DIPB, INPUT);
     pinMode(DIPC, INPUT);
     pinMode(DIPD, INPUT);
+    pinMode(DIPE, INPUT);
 
     // Start pin
     pinMode(START_PIN, INPUT);
 
     #if defined(RUN_MOVEMENTS_TEST) || defined(RUN_TASK_TEST) || defined(RUN_MOVEMENT_SENSOR_CALIBRATION)
-        xTaskCreate(stateMachineTask, "stateMachineTask", 4096, NULL, 1, &stateMachineTaskHandle);
+    xTaskCreate(stateMachineTask, "stateMachineTask", 4096, NULL, 1, &stateMachineTaskHandle);
     #endif
 
-    startSignal = false; //Esto agregue despues de la compe, verificar
+    //startSignal = false; //Esto agregue despues de la compe, verificar
 }
 
 bool elapsedTime(TickType_t duration) {
@@ -95,4 +101,20 @@ bool elapsedTime(TickType_t duration) {
     }
 }
 
-void loop() {};
+State checkSensors(){
+
+    State nextState;
+
+    return nextState;
+}
+/*void loop() {
+
+    for(int i = 0 ;i<24;i++) {
+          Serial.print(parametros[i]);
+          Serial.print(" ");
+    }
+    Serial.println(" ");
+
+   delay(1000);
+
+};*/

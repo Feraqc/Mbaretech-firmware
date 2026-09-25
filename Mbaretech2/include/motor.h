@@ -6,12 +6,12 @@
 #include "globals.h"
 
 
-#define FREQUENCY 40000
+#define FREQUENCY 20000 //40000
 
 //MOTOR A
 #define PWM_B 48
 #define PIN_B0 47
-#define PIN_B1 45
+#define PIN_B1 20 //45
 #define CHANNEL_LEFT LEDC_CHANNEL_1
 
 //MOTORB

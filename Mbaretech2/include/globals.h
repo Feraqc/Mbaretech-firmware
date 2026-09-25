@@ -8,18 +8,22 @@
 #include <freertos/task.h>
 #include "freertos/semphr.h"
 
-#include <WiFi.h>
-#include <ESPAsyncWebServer.h>
-#include <AsyncTCP.h>
+//#include <WiFi.h>
+//#include <ESPAsyncWebServer.h>
+//#include <AsyncTCP.h>
 #include "esp_efuse.h"
 #include "esp_efuse_table.h"
 
-#include "IMU.h"
+//#include "IMU.h"
 #include "motor.h"	
 
 // Defines
 #define ADC_WIDTH ADC_WIDTH_BIT_12
 
+
+// array comunicacion bluetooth
+const int ARRAY_PARAMETROS_SIZE = 19; //traje esto desde el globals
+extern int parametros[ARRAY_PARAMETROS_SIZE];
 
 
 #ifdef MBARETECH_2
@@ -44,14 +48,15 @@
 #define DIPA 42
 #define DIPB 2
 #define DIPC 1
-#define DIPD 44
+#define DIPD 44 
 
 #define START_PIN 41
 
 #define SDA_PIN 15
 #define SCL_PIN 16
 
-#define HALL_PIN 43
+//#define HALL_PIN 43 //ahora DIPD
+
 
 #define ENCODER_LEFT 14
 #define ENCODER_RIGHT 12
@@ -61,35 +66,42 @@
 #define LINE_BACK_LEFT ADC2_CHANNEL_8
 #define LINE_BACK_RIGHT ADC2_CHANNEL_9
 #define ADC_WIDTH ADC_WIDTH_BIT_12
+#define DIPE 19
 
 // SPEED AND TIMERS
 // Los comentados son los delays (y timers) de Asuncion
 // Los valores no comentados son sugerencias para brasil
 // Probar y ajustar para ambos bots
+
+
+
 #ifdef MBARETECH_2
-#define TURN_LEFT_SPEED 80 //percertage
+#define TURN_LEFT_SPEED 94 //percertage parametros[5]
 #define LAST_LEFT_45_TIMER 150 //100
-#define TURN_LEFT_45_DELAY 45//55//70 //40
+#define TURN_LEFT_45_DELAY 60//55//70 //40
 
 #define LAST_LEFT_90_TIMER 200 //230
-#define TURN_LEFT_90_DELAY 65//75 //contra charizard tenia 95 y se pasaba //105
+#define TURN_LEFT_90_DELAY 75//75 //contra charizard tenia 95 y se pasaba //105
 
-#define TURN_LEFT_180_DELAY 170 // ajustar, simplemente demostrativo
+#define TURN_LEFT_180_DELAY 150 // ajustar, simplemente demostrativo
 
-#define TURN_RIGHT_SPEED 80
+#define TURN_RIGHT_SPEED 94
 #define LAST_RIGHT_45_TIMER 150 //110
-#define TURN_RIGHT_45_DELAY 45//55 //estaba 70 //50
+#define TURN_RIGHT_45_DELAY 60//55 //estaba 70 //50
 
 #define LAST_RIGHT_90_TIMER 200 //250
-#define TURN_RIGHT_90_DELAY 65//75 //125 //Contra charizar tenia 95 pero no vimos el giro
+#define TURN_RIGHT_90_DELAY 75//75 //125 //Contra charizar tenia 95 pero no vimos el giro
 
 #define SHORT_RIGHT_DELAY  15 //140
 #define SHORT_LEFT_DELAY 15 //70
-#define THRESHOLD 169
+#define THRESHOLD 145 //169                                                                                                                                                                                 
 
 #define TURKISH_TIME 2000
-#define TURKISH_DELAY 75
+#define TURKISH_DELAY 100
 #endif
+
+#define GIRO_U_DELAY 500
+#define GIRO_U_L_DELAY 1000
 
 #ifdef MBARETECH_1
 #define TURN_LEFT_SPEED 80 //percertage
@@ -110,7 +122,7 @@
 
 #define SHORT_RIGHT_DELAY  10 //140
 #define SHORT_LEFT_DELAY 10 //70
-#define THRESHOLD 1400
+#define THRESHOLD 169
 
 #define TURKISH_TIME 2000
 #define TURKISH_DELAY 30
@@ -121,6 +133,10 @@
 // En brasil debe ser menos, le pongo 85 por el momento
 // Probar si se puede ser 100% o mas de 85
 
+
+#define CORRECT_SPEED 4
+#define TURKISH_SPEED 70
+#define FORWARD_X 94
 #define FORWARD_90 90
 #define FORWARD_80 80
 #define FORWARD_70 70
@@ -138,7 +154,8 @@ extern TickType_t currMove;
 
 void lineSensorsInit();
 int readLineSensorFront(adc1_channel_t channel);
-bool checkLineSensor(int measurement);
+bool checkLineSensora(int measurement);
+bool checkLineSensorb(int measurement);
 extern bool lineSensor[4];
 
 bool elapsedTime(TickType_t duration);
@@ -162,15 +179,27 @@ enum State {
     TURN_RIGHT_45,
     TURN_RIGHT_90,
     TURN_LEFT_90,
+    TURN_LEFT_45_IF,
+    TURN_RIGHT_45_IF,
+    TURN_RIGHT_90_IF,
+    TURN_LEFT_90_IF,
     FORWARD_LEFT,
     FORWARD_RIGHT,
     MOVEMENT_45,
+    L_MOVEMENT_45,
+    R_MOVEMENT_45,
     TURN_180,
     BRAKE,
     SHORT_LEFT_MOVE,
     SHORT_RIGHT_MOVE,
     LINE_RETREAT,
-    INITIAL_MOVEMENT
+    INITIAL_MOVEMENT,
+    SNAKE,
+    TURKISH,
+    GIRO_U_L,
+    GIRO_U_R,
+    GIRO_U_L_LONG,
+    GIRO_U_R_LONG
 };
 
 extern volatile State currentState;
@@ -189,5 +218,6 @@ void changeState(State newState);
 
 void lineSensorsInit();
 int readLineSensorFront(adc1_channel_t channel);
+
 
 #endif // GLOBALS_H
