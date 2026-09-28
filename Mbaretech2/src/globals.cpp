@@ -1,5 +1,5 @@
 #include "globals.h"
-
+IMU imu;
 // Definición del array global
 int parametros[ARRAY_PARAMETROS_SIZE] = {
     0,//[0],0: BRAKE 1:changeState 2:DEBUG

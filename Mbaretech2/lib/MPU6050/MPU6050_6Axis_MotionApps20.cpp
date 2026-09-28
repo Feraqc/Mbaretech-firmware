@@ -452,10 +452,10 @@ uint8_t MPU6050_6Axis_MotionApps20::dmpGetQuaternion(Quaternion *q, const uint8_
     int16_t qI[4];
     uint8_t status = dmpGetQuaternion(qI, packet);
     if (status == 0) {
-        q -> w = (float)qI[0] / 8192.0f;
-        q -> x = (float)qI[1] / 8192.0f;
-        q -> y = (float)qI[2] / 8192.0f;
-        q -> z = (float)qI[3] / 8192.0f;
+        q -> w = (float)qI[0] / 16384.0f;
+        q -> x = (float)qI[1] / 16384.0f;
+        q -> y = (float)qI[2] / 16384.0f;
+        q -> z = (float)qI[3] / 16384.0f;
         return 0;
     }
     return status; // int16 return value, indicates error if this line is reached

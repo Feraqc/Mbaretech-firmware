@@ -28,6 +28,7 @@ void IRAM_ATTR KS_ISR(){startSignal = digitalRead(START_PIN);};
 
 volatile State currentState;
 
+
 void setup() {
     esp_efuse_write_field_cnt(ESP_EFUSE_VDD_SPI_FORCE, 1); 
 
@@ -36,6 +37,10 @@ void setup() {
     // Initialize Serial communication
     #ifdef DEBUG
     Serial.begin(115200);
+    #endif
+
+    #ifdef RUN_GYRO_TEST
+    imu.begin();
     #endif
     
 

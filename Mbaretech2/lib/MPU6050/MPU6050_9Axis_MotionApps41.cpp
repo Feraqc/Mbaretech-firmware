@@ -345,10 +345,10 @@ uint8_t MPU6050_9Axis_MotionApps41::dmpInitialize() {
     setSleepEnabled(false);
 
     // get MPU product ID
-    DEBUG_PRINTLN(F("Getting product ID..."));
+    //DEBUG_PRINTLN(F("Getting product ID..."));
     //uint8_t productID = 0; //getProductID();
-    DEBUG_PRINT(F("Product ID = "));
-    DEBUG_PRINT(productID);
+    //DEBUG_PRINT(F("Product ID = "));
+    //DEBUG_PRINT(productID);
 
     // get MPU hardware revision
     DEBUG_PRINTLN(F("Selecting user bank 16..."));

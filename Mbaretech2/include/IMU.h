@@ -22,26 +22,25 @@ class IMU{
     float euler[3];
     float ypr[3];
     char data[6][20];
-    int currentAngle;
+    float currentAngle;
 
-     void getData(){
-      if(mpu.dmpGetCurrentFIFOPacket(fifoBuffer)){
-        mpu.dmpGetQuaternion(&q, fifoBuffer);
-       // mpu.dmpGetEuler(euler, &q);
-       // mpu.dmpGetAccel(&aa, fifoBuffer);
-        mpu.dmpGetGravity(&gravity, &q);
-        // mpu.dmpGetLinearAccel(&aaReal, &aa, &gravity);
-        mpu.dmpGetYawPitchRoll(ypr, &q, &gravity);
-        // currentAngle = ypr[0]*(180/M_PI);
-        getYaw(&currentAngle,&q, &gravity);
-
-   
+    bool getData() {
+      if (!mpu.dmpGetCurrentFIFOPacket(fifoBuffer)) {
+          return false;
       }
+
+      mpu.dmpGetQuaternion(&q, fifoBuffer);
+      mpu.dmpGetGravity(&gravity, &q);
+      mpu.dmpGetYawPitchRoll(ypr, &q, &gravity);
+
+      currentAngle = ypr[0] * 180.0f / M_PI;
+
+      return true;
     }
 
     void begin(){
-      Wire.setPins(SDA,SCL);
-      Wire.begin();
+      //Wire.setPins(SDA,SCL);
+      Wire.begin(SDA,SCL);
       Wire.setClock(400000);
       bool dmpReady = false;
       uint8_t mpuIntStatus;
@@ -53,6 +52,7 @@ class IMU{
       Serial.println(mpu.testConnection() ? F("MPU6050 connection successful") : F("MPU6050 connection failed"));
       
       devStatus = mpu.dmpInitialize();
+      mpu.setFullScaleGyroRange(MPU6050_GYRO_FS_2000);
       mpu.setFullScaleAccelRange(MPU6050_ACCEL_FS_8);
       mpu.setXGyroOffset(48);
       mpu.setYGyroOffset(-59);
@@ -101,9 +101,15 @@ class IMU{
       return false;
     }
 
-    void getYaw(int *data, Quaternion *q, VectorFloat *gravity){
-      *data = atan2(2*q -> x*q -> y - 2*q -> w*q -> z, 2*q -> w*q -> w + 2*q -> x*q -> x - 1)*(180/M_PI);;
-    }
+void getYaw(float *yawDeg, Quaternion *q)
+{
+    float yawRad = atan2(
+        2.0f * q->x * q->y - 2.0f * q->w * q->z,
+        2.0f * q->w * q->w + 2.0f * q->x * q->x - 1.0f
+    );
+
+    *yawDeg = yawRad * 180.0f / M_PI;
+}
     
 
 };

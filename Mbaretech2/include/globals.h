@@ -14,7 +14,7 @@
 #include "esp_efuse.h"
 #include "esp_efuse_table.h"
 
-//#include "IMU.h"
+#include "IMU.h"
 #include "motor.h"	
 
 // Defines
@@ -24,6 +24,8 @@
 // array comunicacion bluetooth
 const int ARRAY_PARAMETROS_SIZE = 19; //traje esto desde el globals
 extern int parametros[ARRAY_PARAMETROS_SIZE];
+
+extern IMU imu;
 
 
 #ifdef MBARETECH_2

@@ -53,27 +53,20 @@ void loggingLineSample(adc1_channel_t channel, int value) {
 
 static void imuLoggingTask(void*) {
     IMU imu;
-    uint32_t attemptedRequest = 0;
+
     imu.begin();
+
     for (;;) {
         if (yawRequested) {
-            const uint32_t request = imuRequest.load();
-            if (!imu.isReady() && attemptedRequest != request) {
-                attemptedRequest = request;
+            if (imu.getData()) {
+                yawValue = imu.currentAngle;
+                yawTime = millis();
+                yawValid = true;
+            } else {
                 yawValid = false;
-                imuStatus = 1;
-                imu.begin();
-                imuStatus = imu.isReady() ? 2 : imu.getInitError();
-            }
-            if (imu.isReady()) {
-                imu.getData();
-                if (imu.hasYaw()) {
-                    yawValue = imu.currentAngle;
-                    yawTime = millis();
-                    yawValid = true;
-                }
             }
         }
+
         vTaskDelay(pdMS_TO_TICKS(10));
     }
 }
