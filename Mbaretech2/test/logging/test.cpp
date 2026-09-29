@@ -1,6 +1,7 @@
 #include "dataLogging.cpp"
+#include "states.cpp"
 
-volatile State currentState = IDLE;
+
 volatile bool irSensor[7] = {true, false, true, false, true, false, true};
 static std::string output;
 void sendData(const String& text) { output += text.c_str(); }

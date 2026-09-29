@@ -1,67 +1,50 @@
 # Desarrollo, pruebas y diagnóstico
 
-## Configuración que se compila hoy
+## Selección del programa
 
-`platformio.ini` selecciona `esp32-s3-devkitc-1` y el modo de sensores sin FSM:
+Editar `include/buildConfig.h` para seleccionar programa, placa y switches `ENABLE_*=0/1`. `firmwareConfig.h` valida dependencias. `platformio.ini` tiene un único entorno técnico; no se elige programa con `-e` ni se agregan entornos. La configuración guardada es gyro aislado por Serial.
 
-```ini
-build_flags =
-    -DMBARETECH_2
-    -DRUN_LINE_SENSOR
-    -DRUN_SENSORS_TEST
-```
+Desde la raíz usar siempre `pio run -d Mbaretech2`; dentro del proyecto, `pio run`. La tabla de combinaciones de combate, sensores y recetas está en [firmware.md](firmware.md). Los flags anteriores `RUN_*`, `DEBUG`, `OLD`, `FORWARDON`, `CANCEL_TURNS` y `ESTADOS_ORDEN` siguen rechazándose.
 
-El bucle lee los siete IR y los dos sensores de línea y cede la CPU durante 10 ms entre vueltas. Bluetooth publica los datos con su propio intervalo (100 ms por defecto). Enviar `menu`, seleccionar canales y enviar 5. Yaw se inicializa bajo demanda; mantener el robot inmóvil durante la calibración. Este modo no crea la tarea de combate ni ordena movimientos, y no produce transiciones ESTADO.
+Los modos de diagnóstico que definen un programa exclusivo no se combinan con combate. La tarea de sensores sí se combina con la FSM; no se combina con los diagnósticos antiguos que leen directamente ADC/GPIO.
 
-Mantener un solo modo que defina `loop()`: no combinar sensores con `RUN_TASK_TEST`, `RUN_MOVEMENTS_TEST` ni otros diagnósticos. Para volver a combate, restaurar el bloque FIGHT comentado y desactivar el bloque de sensores.
+## Diagnósticos adicionales
 
-## Ajustes de comportamiento
+En `include/buildConfig.h`, dejar otros programas exclusivos en 0 y habilitar los switches siguientes:
 
-`include/globals.h` contiene `THRESHOLD`, velocidades y tiempos para `MBARETECH_2`. `src/tasks.cpp` también contiene valores literales de maniobras. Antes de ajustar un giro o el umbral, identificar todas las ramas que lo usan y comprobar el resultado con el robot en la pista.
+- Motor: `ENABLE_MOTOR_TEST=1`, `ENABLE_MOTORS=1`, `ENABLE_SERIAL=1`. `setup()` inicializa los motores y el diagnóstico alterna atrás/freno/adelante.
+- Línea: `ENABLE_LINE_TEST=1`, `ENABLE_LINE_SENSORS=1`, `ENABLE_SERIAL=1`. Lee canales delanteros y traseros. La configuración ADC está habilitada por el mismo flag; verificar físicamente los canales disponibles.
+- Movimientos: `ENABLE_MOVEMENT_TEST=1`, `ENABLE_LINE_SENSORS=1`, `ENABLE_IR_SENSORS=1`, `ENABLE_DIP_SWITCHES=1`, `ENABLE_SERIAL=1`. Para producir salida física agregar `ENABLE_MOTORS=1`; para la implementación antigua agregar `ENABLE_LEGACY_MOVEMENTS=1`. Sus maniobras todavía contienen esperas.
+- Verbosidad adicional: `ENABLE_DEBUG=1` con `ENABLE_SERIAL=1`.
+- Registro opcional en los modos compatibles: `ENABLE_LOGGING=1` y al menos `ENABLE_SERIAL=1` o `ENABLE_BLE=1`.
 
-Las duraciones que recibe `elapsedTime()` son ticks FreeRTOS. Confirmar la frecuencia de tick de la plataforma antes de interpretarlas como milisegundos. Los movimientos no usan encoder ni IMU para corregir su ángulo.
+Para registro de gyro habilitar `ENABLE_GYRO=1`, seleccionar opción 4 del menú y enviar 5. Mantener el robot inmóvil durante la calibración. El diagnóstico aislado `ENABLE_GYRO_TEST=1` no admite la tarea de registro, porque ambos serían propietarios de la misma IMU.
 
-BLE acepta mensajes de texto con forma `ÍNDICE VALOR`, por ejemplo `2 80`. El arreglo `parametros` tiene índices 0–18 y se usa sobre todo en la ruta `RUN_MOVEMENTS_TEST`. La interfaz valida índices 0–18; no valida el rango del valor. Cambiar un valor por BLE no cambia necesariamente el combate compilado en `src/tasks.cpp`.
+## Estados y ajustes
 
-## Cómo comprobar una modificación
+`include/states.h` define una sola lista de estados, sus IDs y nombres. `changeState()` en `src/core/states.cpp` publica los cambios y llama al registro opcional. Combate y ambas tareas de movimientos comparten esa interfaz. Sus algoritmos de maniobra siguen separados.
 
-1. Ejecutar `pio run` en esta carpeta para compilar la ruta activa.
-2. Si se cambió un pin o sensor, verificar sus lecturas y polaridad en el robot.
-3. Si se cambió un motor o giro, comprobar primero el sentido de ambas ruedas con el robot inmovilizado.
-4. Si se cambió el borde o el arranque, comprobar las transiciones `IDLE`, `FORWARD`, `BRAKE` y `LINE_RETREAT` antes de una prueba completa en la pista.
+`include/globals.h` contiene umbrales, velocidades y tiempos por placa. `src/control/combatFsm.cpp` contiene fases no bloqueantes y constantes específicas; sus duraciones son milisegundos. El temporizador antiguo `elapsedTime()` recibe ticks y solo se utiliza en las pruebas antiguas. Los giros no tienen corrección por encoder o IMU.
 
-La carpeta `test/logging/` contiene pruebas host del registro: ejecutar `python test/logging/run.py` con MSVC Build Tools instalado. Compilar confirma una ruta de macros, pero no el comportamiento eléctrico ni la detección física.
+Los comandos `ÍNDICE VALOR` de Serial/BLE modifican `parametros[0..18]`, utilizados principalmente por movimientos de prueba. No sustituyen las constantes del controlador de combate.
 
-## Programas de diagnóstico existentes
+## Verificación
 
-- **Motor (`RUN_DRIVER_TEST`, `src/tests/driverTest.cpp`):** alterna marcha atrás, freno y avance. `setup()` no llama a `Motor::begin()` para este modo; requiere corregir la inicialización antes de ejecutarlo.
-- **Sensores (`RUN_SENSORS_TEST`, `src/tests/sensorsTest.cpp`):** lee siete IR, DIP y los dos ADC de línea en MBARETECH_2; usa los filtros izquierdo/derecho existentes y cede la CPU durante 10 ms. Los datos se consultan por el menú BLE; no ejecuta la FSM ni ordena movimientos.
-- **Línea (`RUN_LS_SENSOR_TEST`, `src/tests/LSsensorTest.cpp`):** intenta leer sensores delanteros y traseros. Incluye `lineSensor.h`, ausente de `Mbaretech2/include`, y los canales traseros no están inicializados. No está listo para usar.
-- **Giroscopio (`RUN_GYRO_TEST`, `src/tests/gyroTest.cpp`):** diagnóstico aislado por Serial a 115200: usa begin()/getData() y los métodos de estado existentes en IMU.h para inicializar el DMP y mostrar yaw válido. Activar únicamente RUN_GYRO_TEST; no ejecuta BLE ni FSM. Mantener inmóvil durante la calibración.
-- **Movimientos (`RUN_MOVEMENTS_TEST`, `src/movements.cpp`):** máquina alternativa que emplea `parametros` para ensayar maniobras. Debe seleccionarse sin `RUN_TASK_TEST`; revisar su combinación de macros antes de utilizarla.
+- Compilar cada configuración afectada con el mismo comando; una compilación no verifica temporización ni hardware.
+- `python Mbaretech2/test/control/run.py --suite fsm`: decisiones, aperturas, interrupciones, fases y temporización simulada.
+- `python Mbaretech2/test/control/run.py --suite sensors`: adquisición y grupos deshabilitados con hardware simulado.
+- `python Mbaretech2/test/control/run.py --compile-only`: compila ambas suites sin ejecutar binarios.
+- `python Mbaretech2/test/logging/run.py`: menú, transiciones y registro.
+- `python Mbaretech2/test/logging/run.py --disabled`: canales deshabilitados.
+- `python Mbaretech2/test/logging/run.py --state-only`: catálogo compartido y cambios de estado sin logger.
+- `python Mbaretech2/test/hardware/run.py --motors-disabled`: ausencia de escrituras GPIO/PWM al deshabilitar motores.
 
-La interfaz de las clases y funciones usadas por estas rutas está en [firmware.md](firmware.md).
+Las pruebas host requieren Python y MSVC Build Tools. Device Guard puede bloquear ejecución aunque la compilación termine. En placa, comprobar polaridad, dirección de ruedas, detección de borde y parada antes de probar maniobras completas. `ENABLE_TASK_TIMING=1` permite observar duración, separación de ciclos y overruns; el procedimiento se describe en [control.md](control.md).
 
 ## Problemas frecuentes
 
-**No sale información por serie.** Comprobar que `DEBUG` esté activo, recompilar y abrir el monitor a 115200 baudios. Gran parte de las impresiones están dentro de bloques `#ifdef DEBUG`.
-
-**No comienza a moverse.** Revisar el nivel de `START_PIN` y la combinación DIP leída por `IDLE`. Comprobar también que se haya compilado `RUN_TASK_TEST` y que la tarea haya iniciado los motores.
-
-**Un motor gira en sentido contrario.** Verificar las salidas A0/A1 del motor afectado, el cableado y la macro `MBARETECH_2`.
-
-**Detecta el borde demasiado pronto o tarde.** Observar las lecturas ADC de ambos sensores delanteros y ajustar `THRESHOLD` según la pista. La función exige varias lecturas consecutivas.
-
-**Un cambio BLE no altera el combate.** Buscar si la rama de `src/tasks.cpp` usa `parametros` o una constante de `globals.h`. La mayoría de las maniobras activas emplean constantes.
-
-## Límites que deben tenerse presentes
-
-- `BRAKE` puede escribir `IDLE` cuando cae `startSignal` y luego sobrescribir ese estado según los IR. Las esperas activas tampoco comprueban todas la señal del mismo modo. El paro no está verificado como mecanismo de seguridad.
-- `elapsedTime()` comparte un único temporizador. Una salida temprana puede alterar la duración de otra maniobra.
-- `checkLineSensora()` y `checkLineSensorb()` usan contadores de 8 bits que pueden desbordarse tras lecturas continuas por debajo del umbral.
-- Hay declaraciones y modos experimentales incompletos. Revisar las condiciones de compilación antes de asumir que una ruta de prueba funciona.
-
-Actualizar estos documentos cuando cambien interfaces, pines, estados, flags o procedimientos de prueba. Para cambios internos sin efecto observable, no hace falta ampliar la documentación.
-
-
-
+- Sin Serial: verificar `ENABLE_SERIAL=1`, 115200 baudios y el programa seleccionado. Para el menú se requiere `ENABLE_LOGGING=1`; DEBUG no sustituye ninguno.
+- Sin BLE: habilitar `ENABLE_BLE=1` y `ENABLE_LOGGING=1`.
+- FSM sin movimiento: verificar `ENABLE_MOTORS=1`, START, datos válidos/recientes y apertura DIP o `FSM_DEFAULT_OPENING`.
+- Bordes detectados demasiado pronto/tarde: verificar ADC y umbral; siete lecturas consecutivas introducen una latencia dependiente del período de adquisición.
+- Cambio BLE sin efecto en combate: verificar si la maniobra usa `parametros` o constantes.

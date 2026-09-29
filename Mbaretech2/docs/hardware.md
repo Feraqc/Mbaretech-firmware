@@ -37,7 +37,7 @@ También están declarados `ADC2_CHANNEL_8` y `ADC2_CHANNEL_9` para sensores tra
 - `DIPA`: GPIO 42; `DIPB`: GPIO 2; `DIPC`: GPIO 1; `DIPE`: GPIO 19. Esas cuatro entradas seleccionan la maniobra inicial.
 - `DIPD`: GPIO 44. Se configura como entrada y aparece en mensajes de depuración, pero no elige maniobras en la lógica activa.
 
-La rama `IDLE` de `src/tasks.cpp` contiene las 16 combinaciones posibles de `DIPE-DIPA-DIPB-DIPC`. El código lee los niveles directamente con `digitalRead()`; no hay una capa de inversión común para DIP.
+La rama `IDLE` de `src/control/tasks.cpp` contiene las 16 combinaciones posibles de `DIPE-DIPA-DIPB-DIPC`. El código lee los niveles directamente con `digitalRead()`; no hay una capa de inversión común para DIP.
 
 ## Otras interfaces
 

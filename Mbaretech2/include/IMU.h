@@ -4,6 +4,7 @@
 #define IMU_H
 
 #include <Arduino.h>
+#include "firmwareConfig.h"
 #include <I2Cdev.h>
 #include <MPU6050_6Axis_MotionApps20.h>
 #include <Wire.h>
@@ -22,10 +23,20 @@ class IMU{
     float euler[3];
     float ypr[3];
     char data[6][20];
-    float currentAngle;
+    float currentAngle = 0;
+    bool dmpReady = false;
+    bool yawAvailable = false;
+    int initError = 0;
+    bool isReady() const { return dmpReady; }
+    bool hasYaw() const { return yawAvailable; }
+    int getInitError() const { return initError; }
 
     bool getData() {
-      if (!mpu.dmpGetCurrentFIFOPacket(fifoBuffer)) {
+#if !ENABLE_GYRO
+      return false;
+#else
+      yawAvailable = false;
+      if (!dmpReady || !mpu.dmpGetCurrentFIFOPacket(fifoBuffer)) {
           return false;
       }
 
@@ -33,23 +44,31 @@ class IMU{
       mpu.dmpGetGravity(&gravity, &q);
       mpu.dmpGetYawPitchRoll(ypr, &q, &gravity);
 
-      currentAngle = ypr[0] * 180.0f / M_PI;
+      getYaw(&currentAngle, &q);
+      yawAvailable = true;
 
       return true;
+#endif
     }
 
     void begin(){
+#if !ENABLE_GYRO
+      dmpReady = yawAvailable = false;
+      initError = -256; // Acquisition disabled at build time.
+#else
       //Wire.setPins(SDA,SCL);
-      Wire.begin(SDA,SCL);
+      dmpReady = yawAvailable = false;
+      initError = 0;
+      if (!Wire.begin(SDA,SCL)) { initError = -2; return; }
       Wire.setClock(400000);
-      bool dmpReady = false;
-      uint8_t mpuIntStatus;
+
+
       uint8_t devStatus;
-      uint16_t packetSize;
-      uint16_t fifoCount;
+
+
       
       mpu.initialize();
-      Serial.println(mpu.testConnection() ? F("MPU6050 connection successful") : F("MPU6050 connection failed"));
+      if (!mpu.testConnection()) { initError = -3; return; }
       
       devStatus = mpu.dmpInitialize();
       mpu.setFullScaleGyroRange(MPU6050_GYRO_FS_2000);
@@ -64,19 +83,26 @@ class IMU{
       if (devStatus == 0) {
         mpu.CalibrateAccel(6);
         mpu.CalibrateGyro(6);
+#if ENABLE_DEBUG
         mpu.PrintActiveOffsets();
+#endif
         mpu.setDMPEnabled(true);
         dmpReady = true;
-        packetSize = mpu.dmpGetFIFOPacketSize();
+        mpu.resetFIFO();
       } 
       else {
+          initError = -3 - devStatus;
+#if ENABLE_DEBUG
           Serial.print(F("DMP Initialization failed (code "));
           Serial.print(devStatus);
           Serial.println(F(")"));
+#endif
       }
+#endif
     }
 
     void transmitData(){
+#if ENABLE_SERIAL
       dtostrf(ypr[0]*(180/M_PI),6,2,data[0]);
       dtostrf(ypr[1]*(180/M_PI),6,2,data[1]);
       dtostrf(ypr[2]*(180/M_PI),6,2,data[2]);
@@ -90,6 +116,7 @@ class IMU{
         Serial.print("\n");
 
      // Serial.println(currentAngle);
+#endif
     }
 
     bool checkRotation(int desiredAngle){
@@ -105,7 +132,7 @@ void getYaw(float *yawDeg, Quaternion *q)
 {
     float yawRad = atan2(
         2.0f * q->x * q->y - 2.0f * q->w * q->z,
-        2.0f * q->w * q->w + 2.0f * q->x * q->x - 1.0f
+        q->w * q->w + q->x * q->x - q->y * q->y - q->z * q->z
     );
 
     *yawDeg = yawRad * 180.0f / M_PI;

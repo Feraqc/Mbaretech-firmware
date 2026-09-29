@@ -1,4 +1,5 @@
-#ifdef RUN_MOVEMENTS_TEST
+#include "firmwareConfig.h"
+#if ENABLE_MOVEMENT_TEST && !ENABLE_LEGACY_MOVEMENTS
 #include "globals.h"
 
 // TO DO tener todo en macro y bien estrucutrado nuevamente
@@ -28,7 +29,7 @@ int tks;
 
 void stateMachineTask(void *param) {
 
-    currentState = BRAKE;
+    changeState(BRAKE);
 
     bool counter = 0;
     rightMotor.begin();
@@ -47,91 +48,91 @@ void stateMachineTask(void *param) {
             switch (currentState) {
 
                 case BRAKE:
-                    #ifdef DEBUG
+                    #if ENABLE_DEBUG
                     Serial.println("BRAKE");
                     #endif
                     leftMotor.brake();
                     rightMotor.brake();
 
                     if (!startSignal) {
-                        currentState = IDLE;
+                        changeState(IDLE);
                     }
                     else if (parametros[0]==0){}
                     else if (parametros[0]==1){
                         if(parametros[1]==0){
                             retreat=false;
-                            currentState=FORWARD;
+                            changeState(FORWARD);
                             break;
                         }
                         else if(parametros[1]==1){
-                            currentState = BACKWARD;
+                            changeState(BACKWARD);
                             break;
                         }
                         else if(parametros[1]==2){
                             retreat = true;
-                            currentState = FORWARD;
+                            changeState(FORWARD);
                             break;
                         }
                     
                         else if(parametros[1]==3){
-                            currentState = TURN_LEFT_45;
+                            changeState(TURN_LEFT_45);
                             break;
                         }
                         else if(parametros[1]==4){
-                            currentState = TURN_LEFT_90;
+                            changeState(TURN_LEFT_90);
                             break;
                         }
                         else if(parametros[1]==5){
-                            currentState = TURN_RIGHT_45;
+                            changeState(TURN_RIGHT_45);
                             break;
                         }
                         else if(parametros[1]==6){
-                            currentState = TURN_RIGHT_90;
+                            changeState(TURN_RIGHT_90);
                             break;
                         }
                         else if(parametros[1]==7){
-                            currentState = TURN_180;
+                            changeState(TURN_180);
                             break;
                         }
                         else if(parametros[1]==8){
                             tks=0;
-                            currentState = TURKISH;
+                            changeState(TURKISH);
                             break;
                         }
                         else if(parametros[1]==9){
-                            currentState = SNAKE;
+                            changeState(SNAKE);
                             break;
                         }
                         else if(parametros[1]==10){
-                            currentState = SHORT_LEFT_MOVE;
+                            changeState(SHORT_LEFT_MOVE);
                             break;
                         }
                         else if(parametros[1]==11){
-                            currentState = SHORT_RIGHT_MOVE;
+                            changeState(SHORT_RIGHT_MOVE);
                             break;
                         }
                         else if(parametros[1]==12){
-                            currentState = L_MOVEMENT_45;
+                            changeState(L_MOVEMENT_45);
                             break;
                         }
                         else if(parametros[1]==13){
-                            currentState = R_MOVEMENT_45;
+                            changeState(R_MOVEMENT_45);
                             break;
                         }
                         else if(parametros[1]==14){
-                            currentState = GIRO_U_L;
+                            changeState(GIRO_U_L);
                             break;
                         }
                         else if(parametros[1]==15){
-                            currentState = GIRO_U_R;
+                            changeState(GIRO_U_R);
                             break;
                         }
                         else if(parametros[1]==16){
-                            currentState = GIRO_U_L_LONG;
+                            changeState(GIRO_U_L_LONG);
                             break;
                         }
                         else if(parametros[1]==17){
-                            currentState = GIRO_U_R_LONG;
+                            changeState(GIRO_U_R_LONG);
                             break;
                         }
                     }
@@ -145,7 +146,7 @@ void stateMachineTask(void *param) {
                             irSensor[SIDE_LEFT] = !digitalRead(IR1);
                             irSensor[SIDE_RIGHT] = !digitalRead(IR7);
                         #endif
-                        #ifdef DEBUG
+                        #if ENABLE_DEBUG
                             Serial.print(irSensor[SIDE_LEFT]);
                             Serial.print("\t");
                             Serial.print(irSensor[SHORT_LEFT]);
@@ -180,7 +181,7 @@ void stateMachineTask(void *param) {
                 break;
 
                 case IDLE:
-                    #ifdef DEBUG
+                    #if ENABLE_DEBUG
                     Serial.println("IDLE");
                     #endif
                     leftMotor.brake();
@@ -188,14 +189,14 @@ void stateMachineTask(void *param) {
                 break;
                     
                 case FORWARD:
-                    #ifdef DEBUG
+                    #if ENABLE_DEBUG
                     Serial.println("FORWARD");
                     #endif
                     rightMotor.forward(parametros[2]);
                     leftMotor.forward(parametros[2]+parametros[18]);
                     
                     while (!elapsedTime(300)){
-                        #ifdef DEBUG
+                        #if ENABLE_DEBUG
                         Serial.println("FORWARD LINE");
                         #endif
                         line_left = readLineSensorFront(LINE_FRONT_LEFT);
@@ -205,7 +206,7 @@ void stateMachineTask(void *param) {
                         if(retreat && (lineSensor[0] || lineSensor[1])){
                             rightMotor.brake();
                             leftMotor.brake();
-                            currentState = LINE_RETREAT;
+                            changeState(LINE_RETREAT);
                             break;
                         }
                     }
@@ -213,11 +214,11 @@ void stateMachineTask(void *param) {
                     rightMotor.brake();
                     leftMotor.brake();
                     parametros[0]=0;
-                    currentState = BRAKE;
+                    changeState(BRAKE);
                 break;
 
                 case BACKWARD:
-                    #ifdef DEBUG
+                    #if ENABLE_DEBUG
                     Serial.println("BACKWARD");
                     #endif
                     rightMotor.backward(parametros[2]);
@@ -226,11 +227,11 @@ void stateMachineTask(void *param) {
                     rightMotor.brake();
                     leftMotor.brake();
                     parametros[0]=0;
-                    currentState = BRAKE;
+                    changeState(BRAKE);
                 break;
                 
                 case LINE_RETREAT:
-                    #ifdef DEBUG
+                    #if ENABLE_DEBUG
                     Serial.println("LINE RETREAT");
                     #endif
                     rightMotor.backward(parametros[2]);
@@ -248,18 +249,18 @@ void stateMachineTask(void *param) {
                     irSensor[TOP_RIGHT] = !digitalRead(IR5);
 
                     if (irSensor[TOP_MID] || irSensor[SHORT_LEFT] || irSensor[SHORT_RIGHT] || irSensor[TOP_LEFT] || irSensor[TOP_RIGHT]){
-                        currentState = BRAKE;
+                        changeState(BRAKE);
                         break;
                     }
                     else{
-                        currentState = TURN_180;
+                        changeState(TURN_180);
                         break;
                     }
                 
                 break;
 
                 case TURN_LEFT_45:
-                    #ifdef DEBUG
+                    #if ENABLE_DEBUG
                     Serial.println("TURN L 45");
                     #endif
                     rightMotor.forward(parametros[3]);
@@ -268,11 +269,11 @@ void stateMachineTask(void *param) {
                     rightMotor.brake();
                     leftMotor.brake();
                     parametros[0]=0;
-                    currentState = BRAKE;
+                    changeState(BRAKE);
                 break;
 
                 case TURN_LEFT_90:
-                    #ifdef DEBUG
+                    #if ENABLE_DEBUG
                     Serial.println("TURN L 90");
                     #endif
                     rightMotor.forward(parametros[3]);
@@ -281,11 +282,11 @@ void stateMachineTask(void *param) {
                     rightMotor.brake();
                     leftMotor.brake();
                     parametros[0]=0;
-                    currentState = BRAKE;
+                    changeState(BRAKE);
                 break;
 
                 case TURN_RIGHT_45:
-                    #ifdef DEBUG
+                    #if ENABLE_DEBUG
                     Serial.println("TURN R 45");
                     #endif
                     leftMotor.forward(parametros[6]+parametros[18]);
@@ -294,11 +295,11 @@ void stateMachineTask(void *param) {
                     rightMotor.brake();
                     leftMotor.brake();
                     parametros[0]=0;
-                    currentState = BRAKE;
+                    changeState(BRAKE);
                 break;
 
                 case TURN_RIGHT_90:
-                    #ifdef DEBUG
+                    #if ENABLE_DEBUG
                     Serial.println("TURN R 90");
                     #endif
                     leftMotor.forward(parametros[6]+parametros[18]);
@@ -308,11 +309,11 @@ void stateMachineTask(void *param) {
                     rightMotor.brake();
                     leftMotor.brake();
                     parametros[0]=0;
-                    currentState = BRAKE;
+                    changeState(BRAKE);
                 break;
        
                 case TURN_180:
-                    #ifdef DEBUG
+                    #if ENABLE_DEBUG
                     Serial.println("TURN 180");
                     #endif
                     rightMotor.forward(parametros[3]);
@@ -321,14 +322,14 @@ void stateMachineTask(void *param) {
                     rightMotor.brake();
                     leftMotor.brake();
                     parametros[0]=0;
-                    currentState = BRAKE;
+                    changeState(BRAKE);
                 break;
 
                 case TURKISH:
                     currTurkish = xTaskGetTickCount();
                     if (currTurkish - lastTurkish >= parametros[13]){
                         tks++;
-                        #ifdef DEBUG
+                        #if ENABLE_DEBUG
                         Serial.print("MOVING A LITTLE");
                         #endif
                         rightMotor.forward(parametros[15]);
@@ -342,13 +343,13 @@ void stateMachineTask(void *param) {
                         rightMotor.brake();
                         leftMotor.brake();
                         parametros[0]=0;
-                        currentState = BRAKE;
+                        changeState(BRAKE);
                         break;
                     }
                     break;
 
                 case SNAKE:
-                    #ifdef DEBUG
+                    #if ENABLE_DEBUG
                     Serial.println("SNAKE");
                     #endif
                     leftMotor.forward(FORWARD_90);
@@ -362,7 +363,7 @@ void stateMachineTask(void *param) {
                     rightMotor.brake();
                     leftMotor.brake();
                     parametros[0]=0;
-                    currentState = BRAKE;
+                    changeState(BRAKE);
                     break;
 
                 case SHORT_LEFT_MOVE:
@@ -373,7 +374,7 @@ void stateMachineTask(void *param) {
                     leftMotor.brake();
                     rightMotor.brake();
                     parametros[0]=0;
-                    currentState = BRAKE;
+                    changeState(BRAKE);
                     break;
 
                 case SHORT_RIGHT_MOVE:
@@ -385,11 +386,11 @@ void stateMachineTask(void *param) {
                     leftMotor.brake();
                     rightMotor.brake();
                     parametros[0]=0;
-                    currentState = BRAKE;
+                    changeState(BRAKE);
                     break;
 
                 case L_MOVEMENT_45:
-                    #ifdef DEBUG
+                    #if ENABLE_DEBUG
                         Serial.println("L_MOVEMENT_45");
                     #endif
                     rightMotor.forward(parametros[3]);
@@ -404,11 +405,11 @@ void stateMachineTask(void *param) {
                     rightMotor.brake();
                     leftMotor.brake();
                     parametros[0]=0;
-                    currentState = BRAKE;
+                    changeState(BRAKE);
                 break;
 
                 case R_MOVEMENT_45:
-                    #ifdef DEBUG
+                    #if ENABLE_DEBUG
                         Serial.println("R_MOVEMENT_45");
                     #endif
                     rightMotor.backward(parametros[6]);
@@ -423,17 +424,17 @@ void stateMachineTask(void *param) {
                     rightMotor.brake();
                     leftMotor.brake();
                     parametros[0]=0;
-                    currentState = BRAKE;
+                    changeState(BRAKE);
                 break;
 
                 case GIRO_U_L:
-                    #ifdef DEBUG
+                    #if ENABLE_DEBUG
                     Serial.println("GIRO U IZQUIERDA CORTO");
                     #endif
                     rightMotor.forward(FORWARD_90);
                     leftMotor.forward(54);//80*2/3
                     while (!elapsedTime(parametros[16])) {
-                        #ifdef CANCEL_TURNS
+                        #if ENABLE_TURN_CANCEL
                         irSensor[TOP_MID] = !digitalRead(IR4);
                         irSensor[SHORT_LEFT] = !digitalRead(IR2);
                         irSensor[SHORT_RIGHT] = !digitalRead(IR6);
@@ -442,37 +443,37 @@ void stateMachineTask(void *param) {
                         //irSensor[SIDE_LEFT] = !digitalRead(IR1);
                         //irSensor[SIDE_RIGHT] = !digitalRead(IR7);
                         if (irSensor[TOP_MID]){
-                            currentState = FORWARD;
+                            changeState(FORWARD);
                             break_turn = true;
                             break;
                         }
                         else if (irSensor[SHORT_LEFT]){
-                            currentState = SHORT_LEFT_MOVE;
+                            changeState(SHORT_LEFT_MOVE);
                             break_turn = true;
                             break;
                         }
                         else if (irSensor[SHORT_RIGHT]){
-                            currentState = SHORT_RIGHT_MOVE;
+                            changeState(SHORT_RIGHT_MOVE);
                             break_turn = true;
                             break;
                         }
                         else if (irSensor[TOP_LEFT]){
-                            currentState = TURN_LEFT_45;
+                            changeState(TURN_LEFT_45);
                             break_turn = true;
                             break;
                         }
                         else if (irSensor[TOP_RIGHT]){
-                            currentState = TURN_RIGHT_45;
+                            changeState(TURN_RIGHT_45);
                             break_turn = true;
                             break;
                         }/*
                         else if (irSensor[SIDE_LEFT]){
-                            currentState = TURN_LEFT_90;
+                            changeState(TURN_LEFT_90);
                             break_turn = true;
                             break;
                         }
                         else if (irSensor[SIDE_RIGHT]){
-                            currentState = TURN_RIGHT_90;
+                            changeState(TURN_RIGHT_90);
                             break_turn = true;
                             break;
                         }*/
@@ -481,17 +482,17 @@ void stateMachineTask(void *param) {
                     leftMotor.brake();
                     rightMotor.brake();
                     parametros[0]=0;
-                    currentState = BRAKE;
+                    changeState(BRAKE);
                 break;
 
                 case GIRO_U_R:
-                    #ifdef DEBUG
+                    #if ENABLE_DEBUG
                     Serial.println("GIRO U DERECHA CORTO");
                     #endif
                     leftMotor.forward(FORWARD_90);
                     rightMotor.forward(54);//80*2/3
                     while (!elapsedTime(parametros[16])){
-                        #ifdef CANCEL_TURNS
+                        #if ENABLE_TURN_CANCEL
                         irSensor[TOP_MID] = !digitalRead(IR4);
                         irSensor[SHORT_LEFT] = !digitalRead(IR2);
                         irSensor[SHORT_RIGHT] = !digitalRead(IR6);
@@ -500,37 +501,37 @@ void stateMachineTask(void *param) {
                         //irSensor[SIDE_LEFT] = !digitalRead(IR1);
                         //irSensor[SIDE_RIGHT] = !digitalRead(IR7);
                         if (irSensor[TOP_MID]){
-                            currentState = FORWARD;
+                            changeState(FORWARD);
                             break_turn = true;
                             break;
                         }
                         else if (irSensor[SHORT_LEFT]){
-                            currentState = SHORT_LEFT_MOVE;
+                            changeState(SHORT_LEFT_MOVE);
                             break_turn = true;
                             break;
                         }
                         else if (irSensor[SHORT_RIGHT]){
-                            currentState = SHORT_RIGHT_MOVE;
+                            changeState(SHORT_RIGHT_MOVE);
                             break_turn = true;
                             break;
                         }
                         else if (irSensor[TOP_LEFT]){
-                            currentState = TURN_LEFT_45;
+                            changeState(TURN_LEFT_45);
                             break_turn = true;
                             break;
                         }
                         else if (irSensor[TOP_RIGHT]){
-                            currentState = TURN_RIGHT_45;
+                            changeState(TURN_RIGHT_45);
                             break_turn = true;
                             break;
                         }/*
                         else if (irSensor[SIDE_LEFT]){
-                            currentState = TURN_LEFT_90;
+                            changeState(TURN_LEFT_90);
                             break_turn = true;
                             break;
                         }
                         else if (irSensor[SIDE_RIGHT]){
-                            currentState = TURN_RIGHT_90;
+                            changeState(TURN_RIGHT_90);
                             break_turn = true;
                             break;
                         }*/
@@ -539,17 +540,17 @@ void stateMachineTask(void *param) {
                     leftMotor.brake();
                     rightMotor.brake();
                     parametros[0]=0;
-                    currentState = BRAKE;
+                    changeState(BRAKE);
                 break;
 
                 case GIRO_U_L_LONG:
-                    #ifdef DEBUG
+                    #if ENABLE_DEBUG
                     Serial.println("GIRO U IZQUIERDA LARGO");
                     #endif
                     rightMotor.forward(FORWARD_80);
                     leftMotor.forward(54);//80*2/3
                     while (!elapsedTime(parametros[17])) {
-                        #ifdef CANCEL_TURNS
+                        #if ENABLE_TURN_CANCEL
                         irSensor[TOP_MID] = !digitalRead(IR4);
                         irSensor[SHORT_LEFT] = !digitalRead(IR2);
                         irSensor[SHORT_RIGHT] = !digitalRead(IR6);
@@ -558,37 +559,37 @@ void stateMachineTask(void *param) {
                         //irSensor[SIDE_LEFT] = !digitalRead(IR1);
                         //irSensor[SIDE_RIGHT] = !digitalRead(IR7);
                         if (irSensor[TOP_MID]){
-                            currentState = FORWARD;
+                            changeState(FORWARD);
                             break_turn = true;
                             break;
                         }
                         else if (irSensor[SHORT_LEFT]){
-                            currentState = SHORT_LEFT_MOVE;
+                            changeState(SHORT_LEFT_MOVE);
                             break_turn = true;
                             break;
                         }
                         else if (irSensor[SHORT_RIGHT]){
-                            currentState = SHORT_RIGHT_MOVE;
+                            changeState(SHORT_RIGHT_MOVE);
                             break_turn = true;
                             break;
                         }
                         else if (irSensor[TOP_LEFT]){
-                            currentState = TURN_LEFT_45;
+                            changeState(TURN_LEFT_45);
                             break_turn = true;
                             break;
                         }
                         else if (irSensor[TOP_RIGHT]){
-                            currentState = TURN_RIGHT_45;
+                            changeState(TURN_RIGHT_45);
                             break_turn = true;
                             break;
                         }/*
                         else if (irSensor[SIDE_LEFT]){
-                            currentState = TURN_LEFT_90;
+                            changeState(TURN_LEFT_90);
                             break_turn = true;
                             break;
                         }
                         else if (irSensor[SIDE_RIGHT]){
-                            currentState = TURN_RIGHT_90;
+                            changeState(TURN_RIGHT_90);
                             break_turn = true;
                             break;
                         }*/
@@ -597,17 +598,17 @@ void stateMachineTask(void *param) {
                     leftMotor.brake();
                     rightMotor.brake();
                     parametros[0]=0;
-                    currentState = BRAKE;
+                    changeState(BRAKE);
                 break;
 
                 case GIRO_U_R_LONG:
-                    #ifdef DEBUG
+                    #if ENABLE_DEBUG
                     Serial.println("GIRO U DERECHA LARGO");
                     #endif
                     leftMotor.forward(FORWARD_80);
                     rightMotor.forward(54);//80*2/3
                     while (!elapsedTime(parametros[17])){
-                        #ifdef CANCEL_TURNS
+                        #if ENABLE_TURN_CANCEL
                         irSensor[TOP_MID] = !digitalRead(IR4);
                         irSensor[SHORT_LEFT] = !digitalRead(IR2);
                         irSensor[SHORT_RIGHT] = !digitalRead(IR6);
@@ -616,37 +617,37 @@ void stateMachineTask(void *param) {
                         //irSensor[SIDE_LEFT] = !digitalRead(IR1);
                         //irSensor[SIDE_RIGHT] = !digitalRead(IR7);
                         if (irSensor[TOP_MID]){
-                            currentState = FORWARD;
+                            changeState(FORWARD);
                             break_turn = true;
                             break;
                         }
                         else if (irSensor[SHORT_LEFT]){
-                            currentState = SHORT_LEFT_MOVE;
+                            changeState(SHORT_LEFT_MOVE);
                             break_turn = true;
                             break;
                         }
                         else if (irSensor[SHORT_RIGHT]){
-                            currentState = SHORT_RIGHT_MOVE;
+                            changeState(SHORT_RIGHT_MOVE);
                             break_turn = true;
                             break;
                         }
                         else if (irSensor[TOP_LEFT]){
-                            currentState = TURN_LEFT_45;
+                            changeState(TURN_LEFT_45);
                             break_turn = true;
                             break;
                         }
                         else if (irSensor[TOP_RIGHT]){
-                            currentState = TURN_RIGHT_45;
+                            changeState(TURN_RIGHT_45);
                             break_turn = true;
                             break;
                         }/*
                         else if (irSensor[SIDE_LEFT]){
-                            currentState = TURN_LEFT_90;
+                            changeState(TURN_LEFT_90);
                             break_turn = true;
                             break;
                         }
                         else if (irSensor[SIDE_RIGHT]){
-                            currentState = TURN_RIGHT_90;
+                            changeState(TURN_RIGHT_90);
                             break_turn = true;
                             break;
                         }*/
@@ -655,7 +656,7 @@ void stateMachineTask(void *param) {
                     leftMotor.brake();
                     rightMotor.brake();
                     parametros[0]=0;
-                    currentState = BRAKE;
+                    changeState(BRAKE);
                 break;
                            
                 case FORWARD_RIGHT:
@@ -668,7 +669,7 @@ void stateMachineTask(void *param) {
                     leftMotor.brake();
                     while (!elapsedTime(1000)) {
                     }
-                    currentState = BRAKE;
+                    changeState(BRAKE);
                     break;
 
                 case FORWARD_LEFT:
@@ -681,7 +682,7 @@ void stateMachineTask(void *param) {
                     leftMotor.brake();
                     while (!elapsedTime(1000)) {
                     }
-                    currentState = BRAKE;
+                    changeState(BRAKE);
                     break;
 
             }

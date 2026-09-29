@@ -2,8 +2,9 @@
 #ifndef MOTOR_H
 #define MOTOR_H
 #include <Arduino.h>
+#include "firmwareConfig.h"
 #include "driver/ledc.h"
-#include "globals.h"
+
 
 
 #define FREQUENCY 20000 //40000
@@ -24,12 +25,12 @@
 
 class Motor{
     public:
-        uint32_t currentSpeed;
+        uint32_t currentSpeed = 0; // Applied PWM duty (0..990).
         uint8_t pwmPin;
         uint8_t A0pin;
         uint8_t A1pin;
         ledc_channel_t pwmChannel;
-        ledc_channel_config_t ledc_channel;
+        ledc_channel_config_t ledc_channel{};
 
         Motor(uint8_t pwmPin_,uint8_t A0pin_,uint8_t A1pin_, ledc_channel_t pwmChannel_){
             pwmPin = pwmPin_;
@@ -39,10 +40,11 @@ class Motor{
         }
 
         void begin(){
+#if ENABLE_MOTORS
             pinMode(pwmPin, OUTPUT);
             pinMode(A0pin, OUTPUT);
             pinMode(A1pin, OUTPUT);
-            
+
             ledc_timer_config_t ledc_timer = {
                 .speed_mode = LEDC_LOW_SPEED_MODE,
                 .duty_resolution = LEDC_TIMER_10_BIT,
@@ -52,7 +54,7 @@ class Motor{
             };
             ledc_timer_config(&ledc_timer);
 
-            ledc_channel_config_t ledc_channel = {
+            ledc_channel = {
                 .gpio_num = pwmPin,
                 .speed_mode = LEDC_LOW_SPEED_MODE,
                 .channel = pwmChannel,
@@ -61,30 +63,58 @@ class Motor{
                 .duty = 0
             };
             ledc_channel_config(&ledc_channel);
+            brake();
+
+#else
+            currentSpeed = 0;
+#endif
         }
 
         void setSpeed(uint32_t percentage){
+#if ENABLE_MOTORS
+            if (percentage > 100) percentage = 100;
             int speed = map(percentage,0,100,0,1023);
-            speed = constrain(speed,1,MAX_DUTY_VALUE); // Datasheet dice 98%, le capeo a casi 97% ~ 990
+            speed = constrain(speed,0,MAX_DUTY_VALUE); // Datasheet dice 98%, le capeo a casi 97% ~ 990
             ledc_set_duty(LEDC_LOW_SPEED_MODE,pwmChannel,speed);
             ledc_update_duty(LEDC_LOW_SPEED_MODE,pwmChannel);
-            //currentSpeed = speed;
+            currentSpeed = speed;
+            ledc_channel.duty = speed;
+
+#else
+            currentSpeed = 0;
+#endif
         }
 
         void forward(uint32_t speed){
+#if ENABLE_MOTORS
             digitalWrite(A0pin,0);
             digitalWrite(A1pin,1);
             setSpeed(speed);
+
+#else
+            currentSpeed = 0;
+#endif
         }
         void backward(uint32_t speed){
+#if ENABLE_MOTORS
             digitalWrite(A0pin,1);
             digitalWrite(A1pin,0);
             setSpeed(speed);
+
+#else
+            currentSpeed = 0;
+#endif
         }
         void brake(){
+#if ENABLE_MOTORS
+            setSpeed(0);
             digitalWrite(A0pin,0);
             digitalWrite(A1pin,0);
+
+#else
+            currentSpeed = 0;
+#endif
         }
 };
 
-#endif 
+#endif

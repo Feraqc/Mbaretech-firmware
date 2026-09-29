@@ -1,7 +1,12 @@
-#ifndef RUN_GYRO_TEST
+#include "firmwareConfig.h"
+#if ENABLE_LOGGING
 #include "dataLogging.h"
+#include "firmwareConfig.h"
 #include "bluetoothComm.h"
 #include "IMU.h"
+#if ENABLE_SENSOR_TASK
+#include "sensorTasks.h"
+#endif
 #include <atomic>
 
 static LoggingConfig config;
@@ -19,27 +24,7 @@ static uint32_t sessionCounter = 0;
 struct Transition { uint32_t time, session; State from, to; };
 static QueueHandle_t transitions;
 
-static const char* stateName(State state) {
-    switch (state) {
-#define STATE_NAME(name) case name: return #name;
-        STATE_NAME(IDLE) STATE_NAME(FORWARD) STATE_NAME(BACKWARD)
-        STATE_NAME(TURN_RIGHT) STATE_NAME(TURN_LEFT_45) STATE_NAME(TURN_RIGHT_45)
-        STATE_NAME(TURN_RIGHT_90) STATE_NAME(TURN_LEFT_90) STATE_NAME(TURN_LEFT_45_IF)
-        STATE_NAME(TURN_RIGHT_45_IF) STATE_NAME(TURN_RIGHT_90_IF) STATE_NAME(TURN_LEFT_90_IF)
-        STATE_NAME(FORWARD_LEFT) STATE_NAME(FORWARD_RIGHT) STATE_NAME(MOVEMENT_45)
-        STATE_NAME(L_MOVEMENT_45) STATE_NAME(R_MOVEMENT_45) STATE_NAME(TURN_180)
-        STATE_NAME(BRAKE) STATE_NAME(SHORT_LEFT_MOVE) STATE_NAME(SHORT_RIGHT_MOVE)
-        STATE_NAME(LINE_RETREAT) STATE_NAME(INITIAL_MOVEMENT) STATE_NAME(SNAKE)
-        STATE_NAME(TURKISH) STATE_NAME(GIRO_U_L) STATE_NAME(GIRO_U_R)
-        STATE_NAME(GIRO_U_L_LONG) STATE_NAME(GIRO_U_R_LONG)
-#undef STATE_NAME
-    }
-    return "DESCONOCIDO";
-}
-
-void changeState(State next) {
-    const State previous = currentState;
-    currentState = next;
+void loggingStateChanged(State previous, State next) {
     const uint32_t session = eventSession.load();
     if (previous == next || !session || !transitions) return;
     Transition event{millis(), session, previous, next};
@@ -51,30 +36,44 @@ void loggingLineSample(adc1_channel_t channel, int value) {
     if (channel == LINE_FRONT_RIGHT) rightSample = value;
 }
 
+#if ENABLE_GYRO
 static void imuLoggingTask(void*) {
     IMU imu;
 
-    imu.begin();
-
+    uint32_t attemptedRequest = 0;
     for (;;) {
         if (yawRequested) {
-            if (imu.getData()) {
-                yawValue = imu.currentAngle;
-                yawTime = millis();
-                yawValid = true;
-            } else {
+            const uint32_t request = imuRequest.load();
+            if (!imu.isReady() && request != attemptedRequest) {
+                attemptedRequest = request;
                 yawValid = false;
+                imuStatus = 1;
+                imu.begin();
+                imuStatus = imu.isReady() ? 2 : imu.getInitError();
             }
+            if (imu.isReady()) {
+                imu.getData();
+                if (imu.hasYaw()) {
+                    yawValue = imu.currentAngle;
+                    yawTime = millis();
+                    yawValid = true;
+                }
+            }
+        } else {
+            yawValid = false;
         }
-
         vTaskDelay(pdMS_TO_TICKS(10));
     }
 }
 
+#endif
+
 void loggingInit() {
     transitions = xQueueCreate(64, sizeof(Transition));
+#if ENABLE_GYRO
     if (xTaskCreate(imuLoggingTask, "loggingIMU", 4096, nullptr, 1, nullptr) != pdPASS)
         imuStatus = -1;
+#endif
 }
 
 static const char* onOff(bool value) { return value ? "ON" : "OFF"; }
@@ -132,17 +131,33 @@ void loggingCommand(const String& command) {
         return;
     }
     if (!menu) { menu = true; showMenu(); return; }
-    if (command == "1") config.linea = !config.linea;
-    else if (command == "2") config.ir = !config.ir;
+    if (command == "1") {
+#if ENABLE_LINE_SENSORS
+        config.linea = !config.linea;
+#else
+        sendData("LINEA deshabilitada: ENABLE_LINE_SENSORS=0.\n");
+#endif
+    }
+    else if (command == "2") {
+#if ENABLE_IR_SENSORS
+        config.ir = !config.ir;
+#else
+        sendData("IR deshabilitado: ENABLE_IR_SENSORS=0.\n");
+#endif
+    }
     else if (command == "3") {
         config.estado = !config.estado;
         refreshEventSession();
         if (!transitions) sendData("ERROR: cola de estados no disponible.\n");
     }
     else if (command == "4") {
+#if ENABLE_GYRO
         config.yaw = !config.yaw;
         if (config.yaw)
             sendData("IMU: mantener inmovil durante la inicializacion/calibracion al iniciar.\n");
+#else
+        sendData("GYRO deshabilitado: ENABLE_GYRO=0.\n");
+#endif
     }
     else if (command == "5") {
         config.activo = true;
@@ -185,8 +200,22 @@ void loggingPoll() {
     const uint32_t now = millis();
     if (uint32_t(now - lastSample) < config.intervaloMs) return;
     lastSample = now;
+#if ENABLE_TASK_TIMING && (ENABLE_SENSOR_TASK)
+    for (const TimedTask task : {TimedTask::Sensor, TimedTask::Fsm}) {
+        const TaskTiming timing = readTaskTiming(task);
+        sendData(String("TIMING,") + (task == TimedTask::Sensor ? "SENSOR," : "FSM,") +
+                 String(timing.maxExecutionUs) + "," + String(timing.maxStartGapUs) + "," +
+                 String(timing.overrunCount) + "\n");
+    }
+#endif
+#if ENABLE_SENSOR_TASK
+    const SensorSnapshot sensors = readSensorSnapshot();
+    const int left = sensors.rawLine[0], right = sensors.rawLine[1];
+#else
+    const int left = leftSample.load(), right = rightSample.load();
+#endif
     if (config.linea)
-        sendData("LINEA," + String(now) + "," + String(leftSample.load()) + "," + String(rightSample.load()) + "\n");
+        sendData("LINEA," + String(now) + "," + String(left) + "," + String(right) + "\n");
     if (config.ir) {
         String line = "IR," + String(now);
 #ifdef MBARETECH_1
@@ -194,7 +223,13 @@ void loggingPoll() {
 #else
         const int first = SIDE_LEFT, last = SIDE_RIGHT;
 #endif
-        for (int i = first; i <= last; ++i) line += "," + String(irSensor[i] ? 1 : 0);
+        for (int i = first; i <= last; ++i) {
+#if ENABLE_SENSOR_TASK
+            line += "," + String(sensors.ir[i] ? 1 : 0);
+#else
+            line += "," + String(irSensor[i] ? 1 : 0);
+#endif
+        }
         sendData(line + "\n");
     }
     if (config.yaw) {
@@ -220,4 +255,4 @@ void loggingPoll() {
             sendData("YAW," + String(now) + ",NA\n");
     }
 }
-#endif // RUN_GYRO_TEST
+#endif // ENABLE_LOGGING

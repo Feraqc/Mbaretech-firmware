@@ -1,4 +1,5 @@
-#ifdef RUN_TURN_CALIBRATION
+#include "firmwareConfig.h"
+#if ENABLE_TURN_CALIBRATION
 
 #include <Arduino.h>
 
@@ -487,4 +488,4 @@ bool handleTurnCalibrationCommand(String command)
     return true;
 }
 
-#endif // RUN_TURN_CALIBRATION
+#endif // ENABLE_TURN_CALIBRATION

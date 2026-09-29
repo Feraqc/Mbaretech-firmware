@@ -1,4 +1,5 @@
-#ifdef RUN_DRIVER_TEST
+#include "firmwareConfig.h"
+#if ENABLE_MOTOR_TEST
 #include <Arduino.h>
 #include <math.h>
 #include "globals.h"
@@ -35,4 +36,4 @@ void loop() {
     delay(2000); // Wait for 2 seconds
 }
 
-#endif //RUN_DRIVER_TEST
+#endif // ENABLE_MOTOR_TEST

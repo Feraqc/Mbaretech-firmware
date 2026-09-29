@@ -20,16 +20,16 @@ La función Arduino `loop()` está vacía en esta compilación. La tarea intenta
 - **`IDLE`** frena las ruedas mientras espera `startSignal`. Al recibirlo, los DIP `DIPE`, `DIPA`, `DIPB` y `DIPC` seleccionan una de 16 aperturas: avance, giros, movimientos laterales o estrategias `snake` y `turkish`. `DIPD` está configurado, pero no participa en esa selección.
 - **`BRAKE`** es el punto principal de decisión. Lee los IR y da prioridad al sensor central, luego a los cortos, los superiores izquierdo/derecho y los laterales. Si no ve al rival, vuelve a avanzar o realiza avances intermitentes cuando `turkish` está activo. El nombre del estado no implica que siempre ejecute `Motor::brake()`.
 - **`FORWARD`** avanza hacia el rival. Los IR cortos ajustan la velocidad relativa de las ruedas; `snake` alterna impulsos asimétricos. Puede pasar a `BRAKE` al perder el objetivo o a `LINE_RETREAT` al detectar el borde bajo las condiciones de esa rama.
-- **Giros y correcciones** usan duraciones fijas. Los estados de 45°, 90°, 180°, movimientos cortos y giros en U combinan avance y giro; algunos giros terminan antes si `CANCEL_TURNS` está activo y el IR central detecta al rival.
+- **Giros y correcciones** usan duraciones fijas. Los estados de 45°, 90°, 180°, movimientos cortos y giros en U combinan avance y giro; algunos giros terminan antes si `ENABLE_TURN_CANCEL=1` está activo y el IR central detecta al rival.
 - **`LINE_RETREAT`** ordena marcha atrás por un intervalo breve. Después elige entre volver a evaluar al rival y girar 180°.
 
 La lógica de borde no tiene prioridad absoluta en todas las ramas: algunas condiciones permiten continuar hacia un rival detectado. La caída de `startSignal` tampoco se aplica uniformemente a todos los estados. No se debe considerar esta señal un paro de emergencia verificado.
 
 ## Qué código se ejecuta
 
-`RUN_TASK_TEST` habilita la máquina de estados de `src/tasks.cpp`, aunque su nombre sugiera una prueba. `RUN_MOVEMENTS_TEST` habilita la implementación alternativa de `src/movements.cpp`; las dos no deben compilarse juntas porque definen la misma tarea y `loop()`. `src/movements_old.cpp` requiere además `OLD` y conserva una versión anterior. El MPU6050 y los pines de encoder no intervienen en el control de combate activo.
+`ENABLE_FSM=1` habilita la máquina de estados de `src/control/tasks.cpp`, aunque su nombre sugiera una prueba. `ENABLE_MOVEMENT_TEST=1` habilita la implementación alternativa de `src/diagnostics/movements.cpp`; las dos no deben compilarse juntas porque definen la misma tarea y `loop()`. `src/diagnostics/movements_old.cpp` requiere además `ENABLE_LEGACY_MOVEMENTS=1` y conserva una versión anterior. El MPU6050 y los pines de encoder no intervienen en el control de combate activo.
 
-Las velocidades, umbrales y duraciones del combate proceden principalmente de `include/globals.h`, con algunos valores literales en `src/tasks.cpp`. El arreglo `parametros` sirve sobre todo al modo de pruebas de movimientos, aunque BLE se inicializa también en combate.
+Las velocidades, umbrales y duraciones del combate proceden principalmente de `include/globals.h`, con algunos valores literales en `src/control/tasks.cpp`. El arreglo `parametros` sirve sobre todo al modo de pruebas de movimientos, aunque BLE se inicializa también en combate.
 
 ## Cambios delicados
 

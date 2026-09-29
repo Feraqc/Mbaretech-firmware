@@ -6,6 +6,7 @@ struct LoggingConfig {
     uint32_t intervaloMs = 100;
 };
 void loggingInit();
+void loggingStateChanged(State previous, State next);
 void loggingCommand(const String& command);
 void loggingPoll();
 void loggingDisconnected();

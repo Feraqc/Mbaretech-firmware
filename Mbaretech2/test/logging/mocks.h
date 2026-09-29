@@ -29,11 +29,13 @@ constexpr int LINE_FRONT_LEFT = 2, LINE_FRONT_RIGHT = 7;
 using TickType_t = uint32_t;
 using TaskHandle_t = void*;
 constexpr int pdTRUE = 1, pdPASS = 1;
+inline void resetElapsedTime() {}
 inline uint32_t fakeTime = 0;
 inline uint32_t millis() { return fakeTime; }
 inline uint32_t pdMS_TO_TICKS(uint32_t n) { return n; }
 inline void vTaskDelay(uint32_t) {}
-inline int xTaskCreate(void(*)(void*), const char*, int, void*, int, void*) { return pdPASS; }
+inline int taskCreateCount = 0;
+inline int xTaskCreate(void(*)(void*), const char*, int, void*, int, void*) { ++taskCreateCount; return pdPASS; }
 struct Queue { size_t limit, size; std::deque<std::vector<char>> items; };
 using QueueHandle_t = Queue*;
 inline QueueHandle_t xQueueCreate(int count, size_t size) { return new Queue{size_t(count), size, {}}; }

@@ -1,12 +1,19 @@
-#ifndef RUN_GYRO_TEST
+#include "firmwareConfig.h"
+#if ENABLE_LOGGING
 #include "bluetoothComm.h"
 #include "dataLogging.h"
+#if ENABLE_RECIPE_FSM
+#include "fsm/TransitionLog.h"
+#endif
+#if ENABLE_BLE
 #include <BLEDevice.h>
 #include <BLEServer.h>
 #include <BLEUtils.h>
 #include <BLE2902.h>
 #include <atomic>
+#endif
 
+#if ENABLE_BLE
 #define SERVICE_UUID "6E400001-B5A3-F393-E0A9-E50E24DCCA9E"
 #define CHARACTERISTIC_UUID_RX "6E400002-B5A3-F393-E0A9-E50E24DCCA9E"
 #define CHARACTERISTIC_UUID_TX "6E400003-B5A3-F393-E0A9-E50E24DCCA9E"
@@ -16,9 +23,13 @@ static std::atomic<bool> connected{false};
 static std::atomic<bool> disconnected{false};
 static QueueHandle_t commands;
 struct Command { char text[64]; };
+#endif
 
 void sendData(const String& data) {
+#if ENABLE_SERIAL
     Serial.print(data);
+#endif
+#if ENABLE_BLE
     // Clients reassemble the newline stream, even with the default ATT MTU.
     for (size_t offset = 0; connected && offset < data.length(); offset += 20) {
         size_t count = data.length() - offset;
@@ -26,8 +37,10 @@ void sendData(const String& data) {
         tx->setValue(reinterpret_cast<uint8_t*>(const_cast<char*>(data.c_str() + offset)), count);
         tx->notify();
     }
+#endif
 }
 
+#if ENABLE_BLE
 class MyServerCallbacks : public BLEServerCallbacks {
     void onConnect(BLEServer*) override {
         connected = true;
@@ -51,6 +64,9 @@ class MyCallbacks : public BLECharacteristicCallbacks {
     }
 };
 
+#endif
+
+#if ENABLE_SERIAL
 static void readSerialCommands() {
     static char buffer[64];
     static size_t length = 0;
@@ -75,8 +91,11 @@ static void readSerialCommands() {
     }
 }
 
-static void bluetoothTask(void*) {
+#endif
+
+static void communicationsTask(void*) {
     for (;;) {
+#if ENABLE_BLE
         if (disconnected.exchange(false)) {
             loggingDisconnected();
             xQueueReset(commands);
@@ -84,16 +103,22 @@ static void bluetoothTask(void*) {
         Command command;
         for (int i = 0; i < 4 && xQueueReceive(commands, &command, 0) == pdTRUE; ++i)
             bluetoothCommand(String(command.text));
+#endif
+#if ENABLE_SERIAL
         readSerialCommands();
+#endif
         loggingPoll();
+#if ENABLE_RECIPE_FSM
+        fsm::pollRecipeTransitions();
+#endif
         vTaskDelay(pdMS_TO_TICKS(5));
     }
 }
 
-void BLE_UART_Init(const char* deviceName) {
+void communicationsInit(const char* deviceName) {
+#if ENABLE_BLE
     commands = xQueueCreate(16, sizeof(Command));
     if (!commands) return;
-    loggingInit();
     BLEDevice::init(deviceName);
     BLEServer* server = BLEDevice::createServer();
     server->setCallbacks(new MyServerCallbacks());
@@ -104,7 +129,9 @@ void BLE_UART_Init(const char* deviceName) {
     rx->setCallbacks(new MyCallbacks());
     service->start();
     server->getAdvertising()->start();
-    xTaskCreate(bluetoothTask, "bluetoothLog", 6144, nullptr, 1, nullptr);
+#endif
+    loggingInit();
+    xTaskCreate(communicationsTask, "communications", 6144, nullptr, 1, nullptr);
 }
 
 void bluetoothCommand(const String& input) {
@@ -120,4 +147,4 @@ void bluetoothCommand(const String& input) {
     }
     loggingCommand(command);
 }
-#endif // RUN_GYRO_TEST
+#endif // ENABLE_LOGGING

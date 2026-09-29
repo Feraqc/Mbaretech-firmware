@@ -1,5 +1,7 @@
 #ifndef GLOBALS_H
 #define GLOBALS_H
+#include "firmwareConfig.h"
+#include "states.h"
 
 #include <Arduino.h>
 #include <driver/adc.h>
@@ -156,11 +158,13 @@ extern TickType_t currMove;
 
 void lineSensorsInit();
 int readLineSensorFront(adc1_channel_t channel);
+int readLineSensorBack(adc2_channel_t channel);
 bool checkLineSensora(int measurement);
 bool checkLineSensorb(int measurement);
 extern bool lineSensor[4];
 
 bool elapsedTime(TickType_t duration);
+void resetElapsedTime();
 
 enum Sensor { SIDE_LEFT, SHORT_LEFT, TOP_LEFT, TOP_MID, TOP_RIGHT, SHORT_RIGHT, SIDE_RIGHT };
 
@@ -172,51 +176,21 @@ extern bool dipSwitch[4];  // de A a D
 extern Motor leftMotor;
 extern Motor rightMotor;
 
-enum State {
-    IDLE,
-    FORWARD,
-    BACKWARD,
-    TURN_RIGHT,
-    TURN_LEFT_45,
-    TURN_RIGHT_45,
-    TURN_RIGHT_90,
-    TURN_LEFT_90,
-    TURN_LEFT_45_IF,
-    TURN_RIGHT_45_IF,
-    TURN_RIGHT_90_IF,
-    TURN_LEFT_90_IF,
-    FORWARD_LEFT,
-    FORWARD_RIGHT,
-    MOVEMENT_45,
-    L_MOVEMENT_45,
-    R_MOVEMENT_45,
-    TURN_180,
-    BRAKE,
-    SHORT_LEFT_MOVE,
-    SHORT_RIGHT_MOVE,
-    LINE_RETREAT,
-    INITIAL_MOVEMENT,
-    SNAKE,
-    TURKISH,
-    GIRO_U_L,
-    GIRO_U_R,
-    GIRO_U_L_LONG,
-    GIRO_U_R_LONG
-};
 
-extern volatile State currentState;
+
+
 
 //TASK HANDLERS
 extern TaskHandle_t stateMachineTaskHandle;
-extern TaskHandle_t lineSensorTaskHandle;
+
 
 extern bool fast_enemy;
 
 // TASKS
 void stateMachineTask(void *param);
-void lineSensorTask(void *param);
 
-void changeState(State newState);
+
+
 
 void lineSensorsInit();
 int readLineSensorFront(adc1_channel_t channel);

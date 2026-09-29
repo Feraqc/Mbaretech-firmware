@@ -1,6 +1,7 @@
-#ifdef RUN_LS_SENSOR_TEST
+#include "firmwareConfig.h"
+#if ENABLE_LINE_TEST
 #include "globals.h"
-#include "lineSensor.h"
+
 
 void loop(){
     static int reading1 ;
