@@ -1,6 +1,10 @@
 #include "firmwareConfig.h"
 #if ENABLE_SENSOR_TASK
 #include "sensorTasks.h"
+#include "telemetry/TelemetryService.h"
+#if ENABLE_RECIPE_FSM
+#include "fsm/ParameterService.h"
+#endif
 
 namespace {
 portMUX_TYPE snapshotMux = portMUX_INITIALIZER_UNLOCKED;
@@ -66,9 +70,12 @@ SensorSnapshot readSensorSnapshot() {
     portENTER_CRITICAL(&snapshotMux);
     SensorSnapshot result = latest;
     portEXIT_CRITICAL(&snapshotMux);
-    // START comes from the interrupt latch, not the slower acquisition cadence.
-    // Refresh it at the interface boundary without reading GPIO in the runtime.
+    // START proviene del latch ISR o del comando remoto; no leemos GPIO aquí.
+#if ENABLE_RECIPE_FSM
+    result.startActive = fsm::parameterServiceEffectiveStart(startSignal, result.startRemoteControlled);
+#else
     result.startActive = startSignal;
+#endif
     result.startObservedAtMs = millis();
     return result;
 }
@@ -83,10 +90,17 @@ void sensorReadTask(void*) {
 #if ENABLE_TASK_TIMING
         const uint32_t startUs = micros();
 #endif
-        const SensorSnapshot sample = acquireSensors();
+        SensorSnapshot sample = acquireSensors();
+#if ENABLE_RECIPE_FSM
+        sample.startActive = fsm::parameterServiceEffectiveStart(startSignal, sample.startRemoteControlled);
+#else
+        sample.startActive = startSignal;
+#endif
+        sample.startObservedAtMs = millis();
         portENTER_CRITICAL(&snapshotMux);
         latest = sample;
         portEXIT_CRITICAL(&snapshotMux);
+        telemetryPublishSnapshot(sample, THRESHOLD);
 #if ENABLE_TASK_TIMING
         recordTaskTiming(TimedTask::Sensor, uint32_t(micros() - startUs),
                          hasPreviousStart ? uint32_t(startUs - previousStartUs) : 0);
@@ -120,6 +134,18 @@ void recordTaskTiming(TimedTask task, uint32_t executionUs, uint32_t gapUs) {
     if (gapUs > timing.maxStartGapUs) timing.maxStartGapUs = gapUs;
     if (executionUs >= periodUs) ++timing.overrunCount;
     portEXIT_CRITICAL(&snapshotMux);
+    static uint32_t lastPublished[2] = {};
+    const uint32_t now = millis();
+    if (uint32_t(now - lastPublished[index]) >= 100) {
+        lastPublished[index] = now;
+        TelemetryEvent event{};
+        event.type = TelemetryType::TaskTiming;
+        const char* name = task == TimedTask::Sensor ? "SENSOR" : "FSM";
+        for (unsigned i = 0; name[i] && i + 1 < sizeof(event.state); ++i) event.state[i] = name[i];
+        event.value = executionUs;
+        event.extra = gapUs;
+        telemetryPublish(event);
+    }
 }
 
 TaskTiming readTaskTiming(TimedTask task) {

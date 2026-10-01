@@ -20,8 +20,8 @@ bool append(char* buffer, size_t capacity, size_t& used, const char* format, ...
     used += static_cast<size_t>(written);
     return true;
 }
-}
-bool formatTransition(const TransitionEvent& event, char* output, size_t capacity) {
+#if !FSM_CONSOLE_COMPACT
+bool formatStructuredTransition(const TransitionEvent& event, char* output, size_t capacity) {
     char detail[fsm_defs::runtime::LOG_EXPRESSION_BYTES]{};
     size_t used = 0;
     bool complete = true;
@@ -57,5 +57,61 @@ bool formatTransition(const TransitionEvent& event, char* output, size_t capacit
         event.motor.left_pct, event.motor.right_pct, event.step, event.nextStep);
     return complete && written >= 0 && static_cast<size_t>(written) < capacity;
 }
+#else
+bool formatCompactTransition(const TransitionEvent& event, char* output, size_t capacity) {
+    char detail[fsm_defs::runtime::LOG_EXPRESSION_BYTES]{};
+    size_t used = 0;
+    bool complete = true;
+    const bool isStep = event.scope == TransitionScope::STEP;
+    switch (event.condition.type) {
+    case TriggerType::TIMER:
+        // State timers retain the label; step timers need only the duration.
+        complete = append(detail, sizeof(detail), used, "%s%lums",
+            isStep ? "" : "TIMER ", static_cast<unsigned long>(event.condition.timerMs));
+        break;
+    case TriggerType::COMPLETION:
+        complete = append(detail, sizeof(detail), used, "COMPLETE");
+        break;
+    case TriggerType::SENSOR:
+        for (unsigned i = 0; i < event.condition.expression.termCount && complete; ++i) {
+            if (i) complete = append(detail, sizeof(detail), used, " %s ",
+                event.condition.expression.operators[i - 1] == LogicOp::AND ? "AND" : "OR");
+            if (complete) complete = append(detail, sizeof(detail), used, "%s",
+                fsm_defs::conditionName(event.condition.expression.terms[i]));
+        }
+        break;
+    default:
+        complete = append(detail, sizeof(detail), used, "UNKNOWN");
+        break;
+    }
+    int written;
+    if (isStep) {
+        // int16_t step indices fit in six characters plus the terminator.
+        char nextStep[7];
+        if (event.nextStep == STEP_COMPLETE) snprintf(nextStep, sizeof(nextStep), "END");
+        else snprintf(nextStep, sizeof(nextStep), "%d", event.nextStep);
+        written = snprintf(output, capacity, "[STEP] %4lu | %s %d->%s | %s%s | L=%d R=%d\n",
+            static_cast<unsigned long>(event.atMs), fsm_defs::stateName(event.state),
+            event.step, nextStep, detail, complete ? "" : "[TRUNCATED]",
+            event.motor.left_pct, event.motor.right_pct);
+    } else {
+        written = snprintf(output, capacity, "[FSM]  %4lu | %s -> %s | %s%s\n",
+            static_cast<unsigned long>(event.atMs), fsm_defs::stateName(event.state),
+            fsm_defs::stateName(event.nextState), detail, complete ? "" : "[TRUNCATED]");
+    }
+    return complete && written >= 0 && static_cast<size_t>(written) < capacity;
+}
+#endif
+} // namespace
+
+// Presentation selection only: the event and its queued data remain unchanged.
+bool formatTransition(const TransitionEvent& event, char* output, size_t capacity) {
+#if FSM_CONSOLE_COMPACT
+    return formatCompactTransition(event, output, capacity);
+#else
+    return formatStructuredTransition(event, output, capacity);
+#endif
+}
+
 }
 #endif

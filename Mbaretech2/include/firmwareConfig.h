@@ -35,6 +35,12 @@
 #ifndef ENABLE_MOTORS
 #define ENABLE_MOTORS 0
 #endif
+#ifndef FORCE_START_ACTIVE
+#define FORCE_START_ACTIVE 0
+#endif
+#if FORCE_START_ACTIVE != 0 && FORCE_START_ACTIVE != 1
+#error "FORCE_START_ACTIVE must be 0 or 1."
+#endif
 #ifndef ENABLE_LINE_SENSORS
 #define ENABLE_LINE_SENSORS 0
 #endif
@@ -52,6 +58,18 @@
 #endif
 #ifndef ENABLE_TURN_CANCEL
 #define ENABLE_TURN_CANCEL 0
+#endif
+#ifndef ENABLE_WIFI_TELEMETRY
+#define ENABLE_WIFI_TELEMETRY 0
+#endif
+#ifndef ENABLE_TELEMETRY
+#define ENABLE_TELEMETRY 0
+#endif
+#ifndef WIFI_TELEMETRY_USE_STA
+#define WIFI_TELEMETRY_USE_STA 0
+#endif
+#if WIFI_TELEMETRY_USE_STA != 0 && WIFI_TELEMETRY_USE_STA != 1
+#error "WIFI_TELEMETRY_USE_STA must be 0 or 1."
 #endif
 #ifndef ENABLE_GYRO_TEST
 #define ENABLE_GYRO_TEST 0
@@ -86,6 +104,8 @@
     (ENABLE_GYRO != 0 && ENABLE_GYRO != 1) || \
     (ENABLE_TASK_TIMING != 0 && ENABLE_TASK_TIMING != 1) || \
     (ENABLE_TURN_CANCEL != 0 && ENABLE_TURN_CANCEL != 1) || \
+    (ENABLE_WIFI_TELEMETRY != 0 && ENABLE_WIFI_TELEMETRY != 1) || \
+    (ENABLE_TELEMETRY != 0 && ENABLE_TELEMETRY != 1) || \
     (ENABLE_GYRO_TEST != 0 && ENABLE_GYRO_TEST != 1) || \
     (ENABLE_MOVEMENT_TEST != 0 && ENABLE_MOVEMENT_TEST != 1) || \
     (ENABLE_LEGACY_MOVEMENTS != 0 && ENABLE_LEGACY_MOVEMENTS != 1) || \
@@ -108,6 +128,23 @@
 #endif
 #if ENABLE_RECIPE_FSM && !ENABLE_SENSOR_TASK
 #error "Recipe FSM requires ENABLE_SENSOR_TASK."
+#endif
+#if ENABLE_WIFI_TELEMETRY && (!ENABLE_TELEMETRY || !(ENABLE_RECIPE_FSM || ENABLE_FSM))
+#error "WiFi telemetry requires telemetry and a recipe or combat FSM."
+#endif
+#if ENABLE_TELEMETRY && !(ENABLE_SERIAL || ENABLE_BLE || ENABLE_WIFI_TELEMETRY)
+#error "Telemetry requires Serial, BLE or WiFi."
+#endif
+#if ENABLE_TELEMETRY && !(ENABLE_RECIPE_FSM || ENABLE_FSM)
+#error "Telemetry requires a recipe or combat FSM."
+#endif
+#if ENABLE_WIFI_TELEMETRY && WIFI_TELEMETRY_USE_STA && \
+    (!defined(WIFI_TELEMETRY_STA_SSID) || !defined(WIFI_TELEMETRY_STA_PASSWORD))
+#error "STA telemetry requires WIFI_TELEMETRY_STA_SSID and WIFI_TELEMETRY_STA_PASSWORD."
+#endif
+#if ENABLE_WIFI_TELEMETRY && !WIFI_TELEMETRY_USE_STA && \
+    (!defined(WIFI_TELEMETRY_AP_SSID) || !defined(WIFI_TELEMETRY_AP_PASSWORD))
+#error "AP telemetry requires WIFI_TELEMETRY_AP_SSID and WIFI_TELEMETRY_AP_PASSWORD."
 #endif
 #if ENABLE_RECIPE_FSM && !(ENABLE_SERIAL || ENABLE_LOGGING)
 #error "Recipe FSM requires Serial or logging to report recipe validation errors."
@@ -163,4 +200,12 @@
 #endif
 #if FSM_DEFAULT_OPENING < 0 || FSM_DEFAULT_OPENING > 15
 #error "FSM_DEFAULT_OPENING must be 0..15 (E/A/B/C)."
+#endif
+
+// Host builds retain the structured format unless explicitly selected.
+#ifndef FSM_CONSOLE_COMPACT
+#define FSM_CONSOLE_COMPACT 0
+#endif
+#if FSM_CONSOLE_COMPACT != 0 && FSM_CONSOLE_COMPACT != 1
+#error "FSM_CONSOLE_COMPACT must be 0 or 1."
 #endif

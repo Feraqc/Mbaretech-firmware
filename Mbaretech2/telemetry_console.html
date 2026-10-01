@@ -1,0 +1,68 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Mbaretech Telemetry Console</title>
+<link rel="stylesheet" href="tools/recipe-editor/telemetryConsole.css">
+</head>
+<body>
+<header class="topbar">
+  <div class="topline"><div class="brand">MBARETECH <strong>TELEMETRY</strong></div><span id="connection" class="badge">○ DISCONNECTED</span><span id="machine">Machine —</span><span id="protocol">Protocol —</span><span id="paramRevision">Params —</span><span id="uptime">Uptime —</span><span id="rate">0 ev/s</span><span id="gaps">0 gaps</span><span id="drops">0 drops</span><span id="packetAge">Last packet —</span></div>
+  <div class="controls">
+    <label>Transport <select id="transport"><option value="wifi">WiFi</option><option value="serial">Serial</option><option value="bluetooth">BLE</option><option value="mock">Mock</option></select></label>
+    <label id="endpointLabel">Endpoint <input id="endpoint" value="ws://192.168.4.1/ws" spellcheck="false"></label>
+    <button id="connect" class="primary">Connect</button><button id="disconnect">Disconnect</button>
+    <button id="startToggle" type="button" disabled aria-pressed="false" title="Set logical START on the connected robot or Mock">START: OFF</button>
+    <span class="divider"></span><button id="pauseUi">Pause UI</button><button id="record">Record</button><button id="clear">Clear</button>
+    <label>Window <select id="window"><option value="500">500 ms</option><option value="2000">2 s</option><option value="5000">5 s</option><option value="10000" selected>10 s</option><option value="30000">30 s</option></select></label>
+    <button id="settings">Settings</button><button id="resetLayout">Reset layout</button>
+  </div>
+  <div id="warning" class="warning" role="status"></div>
+</header>
+<nav class="tabs" aria-label="Telemetry views">
+  <button data-view="overview" class="active">Overview</button><button data-view="signals">Signals</button><button data-view="fsm">FSM</button><button data-view="performance">Performance</button><button data-view="events">Events</button><button data-view="terminal">Terminal</button><button data-view="capture">Capture</button>
+</nav>
+<main>
+  <section id="overview" class="view active dashboard-grid">
+    <article class="panel stats-panel" data-panel="stats"><div class="panel-title">LIVE STATUS</div><div id="stats" class="stats-grid"></div></article>
+    <article class="panel" data-panel="robot"><div class="panel-title">ROBOT / SENSOR MIMIC</div><div class="robot-layout"><div id="irMap" class="ir-map"></div><div id="robotCenter" class="robot-center"></div><div id="lineIndicators" class="line-indicators"></div></div></article>
+    <article class="panel" data-panel="motors"><div class="panel-title">MOTOR COMMANDS</div><div id="motorCommands" class="motor-readout"></div><div class="curve-legend" data-legend="motorOverview"></div><canvas id="motorOverview" class="mini-chart"></canvas></article>
+    <article class="panel" data-panel="overviewSignals" data-span="wide"><div class="panel-title">SIGNAL TIMELINE</div><div class="curve-legend" data-legend="overviewSignalPlot"></div><canvas id="overviewSignalPlot" class="logic-chart"></canvas></article>
+    <article class="panel" data-panel="overviewEvents" data-span="wide"><div class="panel-title">EVENT TIMELINE</div><div id="recent" class="event-strip"></div></article>
+  </section>
+  <section id="signals" class="view dashboard-grid">
+    <article class="panel" data-panel="logic" data-span="wide"><div class="panel-title">LOGIC ANALYZER · IR / LINE / START / FSM</div><div class="curve-legend" data-legend="signalPlot"></div><canvas id="signalPlot" class="logic-chart tall"></canvas><div id="signalCursor" class="chart-hint">Hover for device time in ms</div></article>
+    <article class="panel" data-panel="lineCalibration"><div class="panel-title">LINE CALIBRATION</div><div id="lineCalibration" class="line-calibration"></div><div class="curve-legend" data-legend="linePlot"></div><canvas id="linePlot" class="series-chart"></canvas></article>
+    <article class="panel" data-panel="motorSeries"><div class="panel-title">MOTOR COMMAND HISTORY</div><div class="curve-legend" data-legend="motorPlot"></div><canvas id="motorPlot" class="series-chart"></canvas></article>
+    <article class="panel" data-panel="stateTimeline" data-span="wide"><div class="panel-title">FSM STATE / SUBFSM STEP TIMELINE</div><div class="curve-legend" data-legend="statePlot"></div><canvas id="statePlot" class="state-chart"></canvas><div id="stateCursor" class="chart-hint">Hover over a segment for duration and reason</div></article>
+  </section>
+  <section id="fsm" class="view dashboard-grid">
+    <article class="panel" data-panel="fsmInspector"><div class="panel-title">FSM RUNTIME INSPECTOR</div><div id="fsmDetails" class="facts"></div></article>
+    <article class="panel" data-panel="fsmTransitions"><div class="panel-title">EXACT TRANSITIONS</div><div id="transitions" class="scroll-list mono"></div></article>
+    <article class="panel" data-panel="fsmCandidates" data-span="wide"><div class="panel-title">TRANSITION EVALUATION</div><div id="candidates" class="facts"></div></article>
+  </section>
+  <section id="performance" class="view dashboard-grid">
+    <article class="panel" data-panel="taskTiming"><div class="panel-title">TASK EXECUTION / START GAP</div><div id="timing" class="facts"></div><div class="curve-legend" data-legend="timingPlot"></div><canvas id="timingPlot" class="series-chart"></canvas></article>
+    <article class="panel" data-panel="telemetryHealth"><div class="panel-title">TELEMETRY HEALTH / SNAPSHOT AGE</div><div id="health" class="facts"></div><div class="curve-legend" data-legend="snapshotPlot"></div><canvas id="snapshotPlot" class="series-chart"></canvas></article>
+    <article class="panel" data-panel="networkHealth" data-span="wide"><div class="panel-title">CONNECTION / NETWORK</div><div id="network" class="facts columns"></div></article>
+  </section>
+  <section id="events" class="view dashboard-grid">
+    <article class="panel" data-panel="eventTable" data-span="wide"><div class="panel-title">CHRONOLOGICAL EVENTS</div><div class="filters"><label>Type <select id="eventType"></select></label><label>State <input id="eventState" placeholder="Search" spellcheck="false"></label><label>Sensor <input id="eventSensor" placeholder="IR4 / LINE" spellcheck="false"></label><label>Search <input id="eventSearch" placeholder="Text or time"></label><label>Order <select id="eventOrder"><option value="newest">Newest first</option><option value="oldest">Oldest first</option></select></label><label>Δt <select id="deltaMode"><option value="previous">Previous event</option><option value="selected">Selected event</option></select></label><span id="selectedMarker" class="subtle">Select a row as marker A</span></div><div class="event-table scroll-list mono"><div class="event-row event-header"><span>TIME</span><span>Δt</span><span>TICK</span><span>TYPE</span><span>STATE / SOURCE</span><span>DETAILS</span></div><div id="eventRows"></div></div></article>
+  </section>
+  <section id="terminal" class="view dashboard-grid">
+    <article class="panel" data-panel="terminal" data-span="wide"><div class="panel-title">UNIFIED TELEMETRY TERMINAL</div><div class="filters"><label>View <select id="terminalMode"><option value="formatted">Formatted</option><option value="raw">Raw protocol</option></select></label><label>Type <select id="terminalType"><option value="">All events</option></select></label><button id="terminalPause">Pause terminal</button><label><input type="checkbox" id="autoScroll" checked> Auto-scroll</label><button id="copyTerminal">Copy</button><button id="clearTerminal">Clear terminal</button></div><div class="terminal scroll-list mono"><div id="terminalHeader" class="terminal-row terminal-header"><span>TIME</span><span>TYPE</span><span>DETAILS</span></div><div id="terminalLines" role="log" aria-live="off"></div></div></article>
+  </section>
+  <section id="capture" class="view dashboard-grid">
+    <article class="panel" data-panel="capture" data-span="wide"><div class="panel-title">CAPTURE / LOCAL REPLAY</div><div class="filters"><button id="stop">Stop recording</button><button id="clearCapture">Clear capture</button><button id="export">Export NDJSON</button><input id="replayFile" type="file" accept=".ndjson,.jsonl,text/plain"><button id="replay">Replay file</button></div><div id="captureState" class="facts"></div><p class="subtle">Rolling history is bounded. An explicit recording retains events until stopped. Replay is local and sends no commands to the robot. Future triggers can use the same event store.</p></article>
+  </section>
+</main>
+<script src="tools/recipe-editor/telemetry.js"></script>
+<script src="tools/recipe-editor/telemetryStore.js"></script>
+<script src="tools/recipe-editor/telemetryPresentation.js"></script>
+<script src="tools/recipe-editor/telemetryMock.js"></script>
+<script src="tools/recipe-editor/telemetryWindowBridge.js"></script>
+<script src="tools/recipe-editor/telemetryPanels.js"></script>
+<script src="tools/recipe-editor/telemetryConsole.js"></script>
+</body>
+</html>

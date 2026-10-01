@@ -36,7 +36,7 @@ void loggingLineSample(adc1_channel_t channel, int value) {
     if (channel == LINE_FRONT_RIGHT) rightSample = value;
 }
 
-#if ENABLE_GYRO
+#if ENABLE_GYRO && !ENABLE_TELEMETRY
 static void imuLoggingTask(void*) {
     IMU imu;
 
@@ -70,7 +70,7 @@ static void imuLoggingTask(void*) {
 
 void loggingInit() {
     transitions = xQueueCreate(64, sizeof(Transition));
-#if ENABLE_GYRO
+#if ENABLE_GYRO && !ENABLE_TELEMETRY
     if (xTaskCreate(imuLoggingTask, "loggingIMU", 4096, nullptr, 1, nullptr) != pdPASS)
         imuStatus = -1;
 #endif

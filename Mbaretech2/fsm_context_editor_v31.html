@@ -1,0 +1,2927 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>FSM Context Editor v31</title>
+<style>
+:root{
+  --bg:#0b0f14;--panel:#111821;--panel2:#0f151d;--border:#273444;
+  --text:#e8eef5;--muted:#8ca0b3;--accent:#59a5ff;--accent2:#2f7dd1;
+  --danger:#ff6b6b;--success:#56d364;--node:#182331;--nodeSel:#243a54;
+  --sub:#2a2038;--subSel:#48315f;
+}
+*{box-sizing:border-box}
+html,body{height:100%;margin:0;font-family:Inter,system-ui,Segoe UI,Arial,sans-serif;background:var(--bg);color:var(--text)}
+body{overflow:hidden}
+button,input,textarea,select{font:inherit}
+button{background:#17212d;border:1px solid var(--border);color:var(--text);border-radius:7px;padding:8px 11px;cursor:pointer}
+button:hover{background:#1d2a39}
+button.primary{background:var(--accent2);border-color:#4b91dd}
+button.danger{color:#ffd9d9;border-color:#713b3b}
+button.active{outline:2px solid var(--accent);background:#203853}
+input,textarea,select{width:100%;background:#0c1219;border:1px solid var(--border);color:var(--text);border-radius:6px;padding:8px}
+textarea{resize:vertical;min-height:68px}
+label{display:block;font-size:12px;color:var(--muted);margin:10px 0 5px}
+.app{display:grid;grid-template-rows:52px minmax(0,1fr) 0;height:100%}
+.topbar{display:flex;align-items:center;gap:8px;padding:0 12px;background:#0e151d;border-bottom:1px solid var(--border)}
+.brand{font-weight:700;margin-right:12px}
+.spacer{flex:1}
+.status{font-size:12px;color:var(--muted)}
+.main{display:grid;grid-template-columns:250px 1fr 320px;min-height:0}
+.sidebar,.inspector{background:var(--panel);padding:12px;overflow:auto}
+.sidebar{border-right:1px solid var(--border)}
+.inspector{border-left:1px solid var(--border)}
+.section{font-size:12px;text-transform:uppercase;letter-spacing:.08em;color:var(--muted);margin:4px 0 10px}
+.tools{display:grid;gap:8px}
+.library{display:grid;gap:6px}
+.library button{padding:7px 9px;text-align:left}
+.canvas-wrap{position:relative;overflow:hidden;background:var(--panel2)}
+svg{width:100%;height:100%;display:block;cursor:grab;background-image:
+linear-gradient(rgba(255,255,255,.035) 1px,transparent 1px),
+linear-gradient(90deg,rgba(255,255,255,.035) 1px,transparent 1px);
+background-size:24px 24px}
+.node rect{fill:var(--node);stroke:#607991;stroke-width:1.5}
+.node.subfsm rect{fill:var(--sub);stroke:#8d67ac}
+.node.selected rect{fill:var(--nodeSel);stroke:var(--accent);stroke-width:2.5}
+.node.subfsm.selected rect{fill:var(--subSel)}
+.node .title{fill:var(--text);font-weight:700;font-size:13px;pointer-events:none}
+.node .subtitle{fill:var(--muted);font-size:10px;pointer-events:none}
+.node .initial{fill:var(--success)}
+.node{cursor:grab}
+svg.panning{cursor:grabbing}
+.edge{fill:none;stroke:#8aa1b6;stroke-width:1.8;marker-end:url(#arrow)}
+.edge.selected{stroke:var(--accent);stroke-width:2.8}
+.edge-hit{fill:none;stroke:transparent;stroke-width:14;cursor:pointer}
+.edge-label{fill:#d9e4ee;font-size:11px;paint-order:stroke;stroke:#0f151d;stroke-width:4px;pointer-events:none}
+.empty,.hint,.mini{font-size:12px;color:var(--muted);line-height:1.5}
+.hint{border-top:1px solid var(--border);margin-top:14px;padding-top:12px}
+.check{display:flex;align-items:center;gap:8px;margin-top:10px}
+.check input{width:auto}
+.seq-list{display:grid;gap:7px;margin-top:8px}
+.seq-item{display:grid;grid-template-columns:1fr 80px 30px;gap:6px;align-items:center}
+.seq-item button{padding:5px}
+.badge{display:inline-block;padding:2px 6px;border:1px solid var(--border);border-radius:10px;font-size:10px;color:var(--muted);margin-left:4px}
+.modal{position:fixed;inset:0;background:rgba(0,0,0,.58);display:none;align-items:center;justify-content:center;padding:24px;z-index:10}
+.modal.show{display:flex}
+.dialog{width:min(900px,95vw);height:min(720px,90vh);background:#0e151d;border:1px solid var(--border);border-radius:10px;display:grid;grid-template-rows:auto 1fr auto;overflow:hidden}
+.dialog header,.dialog footer{padding:12px;display:flex;align-items:center;gap:8px}
+.dialog header{border-bottom:1px solid var(--border)}
+.dialog footer{border-top:1px solid var(--border);justify-content:flex-end}
+.dialog textarea{border:0;border-radius:0;resize:none;min-height:0;font-family:ui-monospace,SFMono-Regular,Consolas,monospace;font-size:12px;line-height:1.45}
+.kbd{border:1px solid #3a4858;border-bottom-width:2px;border-radius:4px;padding:1px 5px;background:#151e28;color:#c7d4df}
+hr{border:0;border-top:1px solid var(--border);margin:14px 0}
+
+.sidebar-section{border:1px solid var(--border);border-radius:8px;margin-top:12px;overflow:hidden}
+.sidebar-section>summary{cursor:pointer;list-style:none;padding:9px 10px;font-size:12px;text-transform:uppercase;letter-spacing:.08em;color:var(--muted);background:#0f161f}
+.sidebar-section>summary::-webkit-details-marker{display:none}
+.sidebar-section>summary::before{content:'▸';display:inline-block;margin-right:7px;transition:transform .15s}
+.sidebar-section[open]>summary::before{transform:rotate(90deg)}
+.sidebar-section-body{padding:9px}
+.zoom-controls{display:grid;grid-template-columns:1fr 1fr 1fr;gap:6px}
+.transition-kind-btn{width:100%;text-align:left}
+
+
+.state-row{display:grid;grid-template-columns:1fr auto;gap:5px;align-items:center;padding:5px;border:1px solid var(--border);border-radius:7px}
+.state-row .state-main{min-width:0}
+.state-row .state-label{font-size:12px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.state-row .state-id{font-size:10px;color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.state-row button{padding:5px 7px;min-width:30px}
+.compact-grid{display:grid;grid-template-columns:1fr 1fr;gap:7px}
+details.motor-advanced{margin-top:8px;border:1px solid var(--border);border-radius:7px;padding:7px}
+details.motor-advanced summary{cursor:pointer;color:var(--muted);font-size:12px}
+
+
+.out-list{display:grid;gap:8px;margin-top:8px}
+.out-card{border:1px solid var(--border);border-radius:8px;padding:8px;background:#0d141c}
+.out-head{display:grid;grid-template-columns:1fr 30px;gap:6px;align-items:center}
+.out-row{display:grid;grid-template-columns:92px 1fr;gap:7px;align-items:center;margin-top:7px}
+.out-card label{margin:0}
+.condition-types{display:grid;grid-template-columns:1fr;gap:5px}
+.condition-type{padding:6px 8px;border:1px solid var(--border);border-radius:6px;font-size:11px;color:var(--muted)}
+
+
+.debug-row{display:flex;align-items:center;gap:7px;margin-top:7px}
+.debug-row input[type="checkbox"]{width:auto}
+.debug-count{font-size:11px;color:var(--muted);margin-left:auto}
+
+
+.macro-row{display:grid;grid-template-columns:1fr auto;gap:6px;align-items:center;padding:6px;border:1px solid var(--border);border-radius:7px}
+.macro-row.active{outline:2px solid var(--accent);background:#182637}
+.macro-main{min-width:0;cursor:pointer}
+.macro-id{font-size:11px;font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.macro-label{font-size:10px;color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.macro-row button{padding:5px 7px}
+.transition-fold{margin-top:8px;border:1px solid var(--border);border-radius:8px;padding:7px}
+.transition-fold>summary{cursor:pointer;color:var(--muted);font-size:12px}
+.step-card{border:1px solid var(--border);border-radius:8px;padding:8px}
+.step-top{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:7px;align-items:center}
+.step-motors{display:grid;grid-template-columns:1fr 1fr;gap:7px;margin-top:8px}
+.step-transition-card{border:1px solid var(--border);border-radius:7px;padding:7px;margin-top:7px;background:#0c131b}
+.step-out-row{display:grid;grid-template-columns:86px 1fr;gap:7px;align-items:center;margin-top:6px}
+.step-out-row label{margin:0}
+
+/* El panel de observación comparte la ventana; cerrado no ocupa canvas. */
+.telemetry-warning{color:#ffcc67}
+.telemetry-ok{color:var(--success)}
+#telemetryDot{max-width:310px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.live-current-state rect{stroke:#56d364!important;stroke-width:3.5!important;filter:drop-shadow(0 0 5px #56d364)}
+.live-last-state rect{stroke:#efb851!important;stroke-width:2.5!important}
+.live-transition{stroke:#efb851!important;stroke-width:4!important}
+.live-active-step rect{stroke-dasharray:7 3}
+.live-step-label{fill:#56d364;font-size:10px;font-weight:700;pointer-events:none}
+.live-condition-true{stroke:#56d364!important;stroke-width:2.5!important}
+.live-condition-false{stroke:#a14e4e!important;stroke-width:2!important}
+.live-transition.live-condition-true,.live-transition.live-condition-false{stroke:#efb851!important;stroke-width:4!important}
+.ir-map{display:grid;grid-template-columns:repeat(3,1fr);gap:3px;margin:5px 0;max-width:240px;text-align:center}
+.ir-map span{border:1px solid var(--border);padding:2px;border-radius:4px}
+.ir-map .active{background:#245c37;color:#eaffef}
+.live-param{border-top:1px solid var(--border);padding:9px 0}
+.live-param-grid{display:grid;grid-template-columns:1fr 1fr 1fr;gap:5px;align-items:end}
+.live-param-grid small{display:block;color:var(--muted)}
+.live-param-grid input{width:100%}
+.live-actions{display:flex;gap:5px;margin-top:10px;flex-wrap:wrap}
+.live-actions button{flex:1 1 100px}
+/* Live Test ensancha el inspector sólo mientras se ve la tabla global. */
+body.live-test-mode .main{grid-template-columns:250px minmax(0,1fr) minmax(540px,46vw)}
+.live-table-wrap{overflow:auto;max-height:calc(100vh - 315px);border:1px solid var(--border);margin-top:10px}
+.live-table{width:100%;border-collapse:collapse;font-size:11px}
+.live-table th,.live-table td{padding:6px;border-bottom:1px solid var(--border);text-align:left;white-space:nowrap}
+.live-table th{position:sticky;top:0;background:#192431;z-index:1;color:var(--muted)}
+.live-table .group td{background:#182331;font-weight:700;color:#c9dfff}
+.live-table tr.selected-state td{background:#162a3d}
+.live-table input{min-width:70px;width:85px;padding:5px}
+.live-table .parameter-id{font:10px ui-monospace,Consolas,monospace;color:var(--muted)}
+.live-state-list{display:grid;gap:9px;max-height:calc(100vh - 330px);overflow:auto;margin:10px 0}
+.live-state-card{border:1px solid var(--border);border-radius:8px;background:#111b26;padding:9px}
+.live-state-card>summary{cursor:pointer;font-weight:650;color:#d8e7f6}
+.live-value-row{display:grid;grid-template-columns:minmax(140px,1fr) 75px 75px minmax(94px,110px);gap:8px;align-items:center;padding:8px 0;border-top:1px solid var(--border);font-size:12px}
+.live-value-row:first-of-type{margin-top:8px}
+.live-value-row input{width:100%;min-width:0;padding:6px}
+.live-value-row .parameter-id{font:10px ui-monospace,Consolas,monospace;color:var(--muted);overflow-wrap:anywhere}
+.live-value-row .value-caption{display:none;color:var(--muted);font-size:10px}
+.live-value-row button{font-size:10px;padding:3px 5px;margin:2px 2px 0 0}
+@media(max-width:1250px){.live-value-row{grid-template-columns:1fr 1fr}.live-value-row .value-caption{display:block}}
+/* Jerarquía legible inspirada en JSON, sin exigir sintaxis ni comprimir controles. */
+.json-view{font:13px Inter,system-ui,Segoe UI,Arial,sans-serif;line-height:1.4}
+.json-view input,.json-view select,.json-view textarea,.json-view button{font-size:13px;padding:7px 8px}
+.json-view .json-row{display:grid;grid-template-columns:90px minmax(0,1fr);gap:8px;align-items:center;margin:9px 0}
+.json-view .json-key{color:#a7bacd;white-space:nowrap;margin:0}
+.json-view .json-brace{display:none}
+.json-view details{margin:12px 0;border:1px solid var(--border);border-radius:7px;padding:9px;background:#111b26}
+.json-view summary{cursor:pointer;color:#d8e7f6;font-weight:600;margin-bottom:6px}
+.json-view .section{margin:7px 0 14px}
+.field-source{grid-column:2;display:grid;gap:3px;margin-top:2px}
+.field-source select{font-size:11px;padding:5px 6px;color:#a8d1f8}
+.field-source small{font-size:11px;color:var(--muted)}
+.json-view .json-error{color:#ff8d8d;font-size:11px}
+.json-view .json-actions{display:flex;gap:5px;margin:6px 0}
+.json-view .json-actions button{width:auto}
+.json-view .out-card,.json-view .step-card,.json-view .step-transition-card{border-radius:6px;padding:9px;margin:8px 0;background:#101923}
+@media(max-width:1100px){body.live-test-mode .main{grid-template-columns:200px minmax(0,1fr) minmax(450px,52vw)}}
+@media(max-width:1450px){.app{grid-template-rows:auto minmax(0,1fr) 0}.topbar{min-height:52px;flex-wrap:wrap;padding:6px 12px}}
+@media(max-width:900px){body.live-test-mode .main{grid-template-columns:minmax(0,1fr)}body.live-test-mode .sidebar,body.live-test-mode .canvas-wrap{display:none}}
+
+</style>
+</head>
+<body>
+<div class="app">
+  <div class="topbar">
+    <div class="brand">FSM Context Editor v31</div>
+    <button id="newBtn">New</button>
+    <button id="importHeaderBtn">Import Firmware FSM</button>
+    <button id="exportHeaderBtn" class="primary">Export Header</button>
+    <button id="exportJsonBtn">Export JSON</button>
+    <button id="exportDslBtn">Export FSM Text</button>
+    <div class="spacer"></div>
+    <button id="telemetryToggleBtn">Open Telemetry Console</button>
+    <button id="liveTestBtn" title="Stage temporary runtime values without editing the recipe">Live Test Mode</button>
+    <button id="startToggleBtn" disabled title="Set logical START on the connected robot">START: OFF</button>
+    <span id="telemetryDot" aria-label="Telemetry disconnected">○ TELEMETRY DISCONNECTED</span>
+    <div id="status" class="status">Ready</div>
+  </div>
+
+  <div class="main">
+    <aside class="sidebar">
+      <div class="section">Tools</div>
+      <div class="tools">
+        <button id="selectTool" class="active">↖ Select / Move</button>
+      </div>
+      <div class="hint" style="margin-top:8px">
+        Native firmware import: select one <b>fsm_recipe_*.h</b>. The editor includes
+        the current <b>FSMDefinitions.h</b> catalog internally.
+      </div>
+
+      <details class="sidebar-section" open>
+        <summary>Available states</summary>
+        <div class="sidebar-section-body">
+          <div id="stateLibrary" class="library"></div>
+        </div>
+      </details>
+
+      <details class="sidebar-section" open>
+        <summary>Available conditions</summary>
+        <div class="sidebar-section-body">
+          <div class="condition-types">
+            <div class="condition-type"><b>TIMER</b> — after N ms</div>
+            <div class="condition-type"><b>SENSOR</b> — sensor / logical condition</div>
+            <div class="condition-type"><b>COMPLETION</b> — SubFSM sequence finished</div>
+          </div>
+
+          <details id="availableMacrosFold" class="transition-fold"><summary>Conditions in this recipe</summary>
+            <div id="macroLibrary" class="library"></div>
+          </details>
+
+        </div>
+      </details>
+
+      <details class="sidebar-section" open>
+        <summary>SubFSM</summary>
+        <div class="sidebar-section-body">
+          <label for="subfsmBaseState">State template</label>
+          <select id="subfsmBaseState"></select>
+          <button id="subfsmBtn" style="width:100%">＋ Add pre-recorded movement</button>
+        </div>
+      </details>
+
+      <details class="sidebar-section" id="recipeParameterFold">
+        <summary>Recipe tuning definitions</summary>
+        <div class="sidebar-section-body" id="recipeParameterEditor"></div>
+      </details>
+
+      <details class="sidebar-section">
+        <summary>Debug log</summary>
+        <div class="sidebar-section-body">
+          <div class="debug-row">
+            <input id="debugEnabled" type="checkbox" checked>
+            <label for="debugEnabled" style="margin:0">Record interactions</label>
+            <span id="debugCount" class="debug-count">0 events</span>
+          </div>
+          <button id="downloadLogBtn" style="width:100%;margin-top:8px">Download .log</button>
+          <button id="copyLogBtn" style="width:100%;margin-top:6px">Copy log</button>
+          <button id="clearLogBtn" class="danger" style="width:100%;margin-top:6px">Clear log</button>
+          <div class="hint" style="margin-top:10px;padding-top:8px">
+            Records state/transition edits, graph actions, import/export operations and runtime errors.
+          </div>
+        </div>
+      </details>
+
+      <details class="sidebar-section" open>
+        <summary>Graph</summary>
+        <div class="sidebar-section-body">
+          <div class="zoom-controls">
+            <button id="zoomOutBtn" title="Zoom out">−</button>
+            <button id="zoomResetBtn" title="Reset zoom">100%</button>
+            <button id="zoomInBtn" title="Zoom in">＋</button>
+          </div>
+          <button id="fitBtn" style="width:100%;margin-top:8px;margin-bottom:8px">Center graph</button>
+          <div class="mini" style="margin-bottom:8px;text-align:center">Drag empty canvas: pan · Mouse wheel: zoom</div>
+          <button id="sampleBtn" style="width:100%">Load sample</button>
+        </div>
+      </details>
+
+      <div class="hint">
+        Use ＋ beside a state, then click the canvas. It returns to Select / Move automatically.<br>
+        Configure outgoing transitions inside each state's Inspector.<br><br>
+        <span class="kbd">Del</span> delete selection<br>
+        <span class="kbd">Esc</span> cancel current tool
+      </div>
+    </aside>
+
+    <main class="canvas-wrap">
+      <svg id="canvas" viewBox="0 0 1400 900">
+        <defs>
+          <marker id="arrow" markerWidth="10" markerHeight="10" refX="9" refY="3" orient="auto" markerUnits="strokeWidth">
+            <path d="M0,0 L0,6 L9,3 z" fill="#8aa1b6"></path>
+          </marker>
+        </defs>
+        <g id="edges"></g>
+        <g id="nodes"></g>
+      </svg>
+    </main>
+
+    <aside class="inspector">
+      <div class="section">Inspector</div>
+      <div id="inspector" class="empty">Select a state or transition.</div>
+    </aside>
+  </div>
+</div>
+
+<div class="modal" id="modal">
+  <div class="dialog">
+    <header>
+      <b id="modalTitle">Export</b>
+      <div class="spacer"></div>
+      <button id="copyBtn">Copy</button>
+    </header>
+    <textarea id="modalText" spellcheck="false"></textarea>
+    <footer>
+      <button id="downloadBtn">Download</button>
+      <button id="closeBtn" class="primary">Close</button>
+    </footer>
+  </div>
+</div>
+
+<input id="fileInput" type="file" accept=".h,.hpp,.hh,text/plain" hidden>
+
+<script src="tools/recipe-editor/core.js"></script>
+<script src="tools/recipe-editor/backend.js"></script>
+<script src="tools/recipe-editor/telemetry.js"></script>
+<script src="tools/recipe-editor/telemetryWindowBridge.js"></script>
+<script src="tools/recipe-editor/runtimeTuning.js"></script>
+<script>
+(() => {
+// Los catálogos se llenan únicamente desde los headers del proyecto.
+let TRANSITION_MACROS = [];
+const firmwareProject = new RecipeBackend.Project();
+let recipeIdentity = null;
+
+function macroById(id){ return TRANSITION_MACROS.find(m=>m.id===id); }
+
+const svg=document.getElementById('canvas');
+const nodesLayer=document.getElementById('nodes');
+const edgesLayer=document.getElementById('edges');
+const inspector=document.getElementById('inspector');
+const statusEl=document.getElementById('status');
+
+const model={
+  name:'robot_fsm',
+  parameters:[],
+  mode:'select',
+  pendingBaseState:null,
+  nodes:[],
+  edges:[],
+  selected:null,
+  transitionSource:null,
+  transitionKind:'macro',
+  nextNode:1,
+  nextEdge:1,
+  nextStep:1,
+  nextStepTransition:1,
+  dragging:null,
+  dragOffset:{x:0,y:0}
+};
+let stateConfigClipboard=null;
+let pasteUndo=null;
+let pasteRedo=null;
+const cloneConfig=value=>JSON.parse(JSON.stringify(value));
+function stateConfigSnapshot(state){
+  return {state:state.state,firmwareCommand:cloneConfig(state.firmwareCommand||{}),
+    allowHoldOnCompletion:state.allowHoldOnCompletion===true,
+    params:cloneConfig(state.params||{}),context:state.context||'',
+    sequence:cloneConfig(state.sequence||[]),
+    edges:cloneConfig(model.edges.filter(item=>item.from===state.id))};
+}
+function restoreStateConfig(state,snapshot){
+  state.state=snapshot.state;state.firmwareCommand=cloneConfig(snapshot.firmwareCommand);
+  state.allowHoldOnCompletion=snapshot.allowHoldOnCompletion;
+  state.params=cloneConfig(snapshot.params);state.context=snapshot.context;
+  state.sequence=cloneConfig(snapshot.sequence);
+  model.edges=model.edges.filter(item=>item.from!==state.id).concat(cloneConfig(snapshot.edges));
+  renderInspector();render();
+}
+function copySelectedStateConfig(){
+  const state=model.selected?.type==='node'?node(model.selected.id):null;
+  if(!state)return;
+  stateConfigClipboard={type:'mbaretech-state-config',version:1,kind:state.type,
+    sourceStateId:state.stateId,config:stateConfigSnapshot(state),
+    transitions:model.edges.filter(item=>item.from===state.id).map(item=>({
+      trigger:cloneConfig(item.trigger),action:item.action||'',
+      targetStateId:node(item.to)?.stateId||null}))};
+  status(`Copied configuration from ${state.name}.`);
+}
+function pasteSelectedStateConfig(){
+  const state=model.selected?.type==='node'?node(model.selected.id):null;
+  const payload=stateConfigClipboard;
+  if(!state||!payload)return;
+  if(payload.version!==1||payload.kind!==state.type){status('Copy and target must have the same state type.');return;}
+  const count=payload.transitions.length;
+  if((count>2||payload.config.sequence.length>2)&&
+    !confirm(`Paste configuration into ${state.name}? Replace command, ${count} transitions and ${payload.config.sequence.length} steps; keep name and position.`))return;
+  const before=stateConfigSnapshot(state);
+  const copied=cloneConfig(payload.config);
+  state.state=copied.state;state.firmwareCommand=copied.firmwareCommand;
+  state.allowHoldOnCompletion=copied.allowHoldOnCompletion;
+  state.params=copied.params;state.context=copied.context;
+  const stepIds=new Map();
+  for(const step of copied.sequence){const fresh='P'+model.nextStep++;stepIds.set(step.id,fresh);step.id=fresh;}
+  for(const step of copied.sequence)for(const transition of step.out_transitions||[]){
+    transition.id='ST'+model.nextStepTransition++;
+    if(transition.next_step!=='COMPLETE')transition.next_step=stepIds.get(transition.next_step)||'MISSING_STEP';
+  }
+  state.sequence=copied.sequence;
+  model.edges=model.edges.filter(item=>item.from!==state.id);
+  const missing=[];
+  for(const transition of payload.transitions){
+    const target=transition.targetStateId===payload.sourceStateId?state:
+      model.nodes.find(item=>item.stateId===transition.targetStateId);
+    if(!target)missing.push(transition.targetStateId||'(unknown)');
+    model.edges.push({id:'E'+model.nextEdge++,from:state.id,to:target?.id||'',
+      trigger:cloneConfig(transition.trigger),action:transition.action});
+  }
+  pasteUndo={stateId:state.id,snapshot:before};pasteRedo=null;
+  renderInspector();render();
+  status(missing.length?`Pasted; fix missing transition targets: ${missing.join(', ')}.`:
+    `Pasted configuration into ${state.name}.`);
+}
+function undoStateConfigPaste(){
+  if(!pasteUndo)return;
+  const state=node(pasteUndo.stateId);if(!state)return;
+  pasteRedo={stateId:state.id,snapshot:stateConfigSnapshot(state)};
+  restoreStateConfig(state,pasteUndo.snapshot);pasteUndo=null;
+}
+function redoStateConfigPaste(){
+  if(!pasteRedo)return;
+  const state=node(pasteRedo.stateId);if(!state)return;
+  pasteUndo={stateId:state.id,snapshot:stateConfigSnapshot(state)};
+  restoreStateConfig(state,pasteRedo.snapshot);pasteRedo=null;
+}
+
+// El editor recibe únicamente eventos para el grafo; la ventana de consola
+// es la única que abre conexiones físicas al robot.
+const telemetryTransport={onMessage(handler){this.messageHandler=handler;},
+  onStatus(handler){this.statusHandler=handler;},disconnect(){}};
+const telemetrySession=new RecipeTelemetry.TelemetrySession(telemetryTransport,scheduleTelemetryRender);
+const LIVE_STATE=telemetrySession.state;
+const tuning=new MbaretechRuntimeTuning.RuntimeTuning();
+let liveTestMode=false;
+let lastLiveEditAllowed=null;
+let tuningRequest=0;
+let startPending=null;
+let tuningSyncTimer=null;
+let tuningSyncAttempts=0;
+let pendingApplyRequested=false;
+let parameterAckTimer=null;
+let parameterCommandRequestId=null;
+function clearParameterAckTimer(){
+  if(parameterAckTimer!==null){clearTimeout(parameterAckTimer);parameterAckTimer=null;}
+}
+function pendingConfirmedByMcu(){
+  return [...tuning.pending.keys()].every(id=>tuning.schema.has(id)&&tuning.values.has(id));
+}
+function applyPendingIfReady(){
+  if(!pendingApplyRequested||!liveTuningStopped())return;
+  if(!tuning.pending.size){pendingApplyRequested=false;return;}
+  if(!pendingConfirmedByMcu())return;
+  pendingApplyRequested=false;
+  try{sendParameterCommand(tuning.prepareSet());}
+  catch(error){tuning.status=error.message;}
+  if(liveTestMode)renderInspector();
+}
+function sendParameterCommand(command){
+  const requestId=++tuningRequest;
+  telemetryBridge.publish({type:'param_command',requestId,
+    machine:model.name,command});
+  if(command.type==='param_set'||command.type==='param_reset'){
+    parameterCommandRequestId=requestId;
+    clearParameterAckTimer();
+    parameterAckTimer=setTimeout(()=>{
+      parameterAckTimer=null;
+      if(tuning.inFlight?.transaction!==command.transaction)return;
+      parameterCommandRequestId=null;
+      tuning.sendFailed('Sin ACK del MCU; consultando valores antes de reintentar.');
+      requestTuningSnapshot();
+      if(liveTestMode)renderInspector();
+    },3500);
+  }
+}
+function requestTuningSnapshot(){
+  sendParameterCommand({type:'param_schema_request'});
+  sendParameterCommand({type:'param_values_request'});
+}
+function scheduleTuningSync(){
+  if(tuningSyncTimer)clearTimeout(tuningSyncTimer);
+  if(!liveTestMode||!LIVE_STATE.connected||tuning.machine!==model.name)return;
+  if(tuning.schemaComplete()&&tuning.valuesComplete()&&
+     (!pendingApplyRequested||pendingConfirmedByMcu())){tuningSyncAttempts=0;return;}
+  tuningSyncTimer=setTimeout(()=>{
+    tuningSyncTimer=null;
+    if(!liveTestMode||!LIVE_STATE.connected||tuning.machine!==model.name||
+       (tuning.schemaComplete()&&tuning.valuesComplete()&&
+        (!pendingApplyRequested||pendingConfirmedByMcu())))return;
+    if(tuningSyncAttempts>=3){
+      if(pendingApplyRequested){
+        pendingApplyRequested=false;
+        tuning.status='El MCU no confirmó los parámetros pendientes. Revisa la receta cargada y la conexión.';
+        renderInspector();
+      }
+      return;
+    }
+    tuningSyncAttempts++;
+    requestTuningSnapshot();
+    scheduleTuningSync();
+  },900);
+}
+function refreshTuningAfterBoot(requestNow=true){
+  tuningSyncAttempts=0;
+  if(liveTestMode&&LIVE_STATE.connected&&tuning.machine===model.name){
+    if(requestNow)requestTuningSnapshot();
+    scheduleTuningSync();
+    renderInspector();
+  }
+}
+function updateEditorStartButton(){
+  const button=document.getElementById('startToggleBtn');
+  const matching=LIVE_STATE.connected&&LIVE_STATE.helloMachine===model.name;
+  button.disabled=!matching||Boolean(startPending);
+  const active=Boolean(LIVE_STATE.sensors.start);
+  button.textContent=`START: ${active?'ON':'OFF'}${startPending?' …':''}`;
+  button.setAttribute('aria-pressed',String(active));
+}
+document.getElementById('startToggleBtn').onclick=()=>{
+  if(!LIVE_STATE.connected||LIVE_STATE.helloMachine!==model.name||startPending)return;
+  const transaction=(Date.now()%2000000000)+1;
+  const requestId=++tuningRequest;
+  const timeout=setTimeout(()=>{
+    if(startPending?.transaction!==transaction)return;
+    startPending=null;updateEditorStartButton();
+    status('Sin START ACK. Comprueba conexión y telemetría.');
+  },3000);
+  startPending={transaction,requestId,timeout};
+  telemetryBridge.publish({type:'start_command',machine:model.name,requestId,
+    command:{type:'start_set',transaction,active:!LIVE_STATE.sensors.start}});
+  updateEditorStartButton();
+};
+const telemetryBridge=TelemetryWindowBridge.createBridge(message=>{
+  if(message?.type==='catalog_request'){
+    publishTelemetryCatalog();
+  }else if(message?.type==='console_status'){
+    telemetryTransport.statusHandler?.(message.connected?'connected':'disconnected');
+    LIVE_STATE.transport=message.transport||'WiFi';
+    if(message.connected){
+      LIVE_STATE.helloMachine=message.machine||null;
+      LIVE_STATE.machine=message.machine||null;
+      LIVE_STATE.protocol=message.protocol||null;
+      LIVE_STATE.currentState=message.currentState||null;
+      LIVE_STATE.currentStep=message.currentStep??null;
+      LIVE_STATE.running=!!message.running;
+      LIVE_STATE.stoppedReason=message.reason||null;
+      LIVE_STATE.lastTransition=message.lastTransition||null;
+      LIVE_STATE.sensors.start=!!message.start;
+      if(Array.isArray(message.ir)&&message.ir.length===7)LIVE_STATE.sensors.ir=message.ir;
+      if(Array.isArray(message.line)&&message.line.length===2)LIVE_STATE.sensors.line=message.line;
+      if(tuning.ingest({type:'hello',machine:message.machine,
+        bootId:message.bootId,paramRevision:message.paramRevision}))
+        refreshTuningAfterBoot();
+    }
+    lastConsoleStatus=Date.now();
+    updateEditorStartButton();
+    if(liveTestMode)scheduleTuningSync();
+    scheduleTelemetryRender('connection');
+    refreshTimerGraphLabels();
+    if(liveTestMode&&lastLiveEditAllowed!==liveTuningStopped())renderInspector();
+  }else if(message?.type==='param_transport_result'){
+    if(!message.ok&&message.requestId===parameterCommandRequestId){
+      parameterCommandRequestId=null;clearParameterAckTimer();
+      tuning.sendFailed(message.error||'Sin transporte');
+    }
+    if(liveTestMode)refreshLiveInspector();
+  }else if(message?.type==='start_transport_result'){
+    if(!message.ok&&startPending?.requestId===message.requestId){
+      clearTimeout(startPending.timeout);startPending=null;
+      status(message.error||'No se pudo enviar START.');updateEditorStartButton();
+    }
+  }else if(message && typeof message.type==='string'){
+    if(message.type==='hello'||message.type.startsWith('param_')){
+      if(message.type==='param_ack'&&tuning.inFlight?.transaction===message.transaction){
+        parameterCommandRequestId=null;clearParameterAckTimer();
+      }
+      if(tuning.ingest(message)){
+        pendingApplyRequested=false;
+        parameterCommandRequestId=null;clearParameterAckTimer();
+        refreshTuningAfterBoot(false);
+      }
+      if(message.type==='param_schema'||message.type==='param_values')applyPendingIfReady();
+      if(liveTestMode)scheduleTuningSync();
+      if(liveTestMode)refreshLiveInspector();
+      refreshTimerGraphLabels();
+    }
+    telemetrySession.receive(JSON.stringify(message));
+    if(liveTestMode&&['start_changed','start_ack','sensors','fsm_status'].includes(message.type)&&
+       lastLiveEditAllowed!==liveTuningStopped()){
+      // START ON invalida inmediatamente los controles, aun si hay un campo enfocado.
+      document.activeElement?.blur?.();renderInspector();
+    }
+    if(message.type==='start_ack'&&startPending?.transaction===message.transaction){
+      clearTimeout(startPending.timeout);startPending=null;
+    }
+    if(message.type==='start_ack'||message.type==='start_changed'||message.type==='sensors')
+      updateEditorStartButton();
+  }
+});
+let lastConsoleStatus=0;
+setInterval(()=>{
+  if(LIVE_STATE.connected && Date.now()-lastConsoleStatus>3500)
+    {telemetryTransport.statusHandler?.('disconnected');updateEditorStartButton();}
+},1000);
+let telemetryBaseline=null;
+let telemetryRenderTimer=null;
+
+function collectEditorParameters(){
+  // La receta declara el catálogo; el simulador nunca inventa parámetros.
+  return (model.parameters||[]).map(p=>({id:p.key,parameterId:p.id,name:p.name,value:p.default,
+    unit:p.unit==='Percent'?'%':'ms',min:p.min,max:p.max,step:p.step,
+    applyPolicy:{Immediate:'immediate',NextStateEntry:'next_state_entry',
+      NextStepEntry:'next_step_entry',NextMachineStart:'next_fsm_restart',
+      StoppedOnly:'stopped_only'}[p.policy],writable:p.writable!==false,group:'RECIPE'}));
+}
+function publishTelemetryCatalog(){
+  if(!recipeIdentity||!model.name)return;
+  const parameters=collectEditorParameters();
+  // Stable StateId is the key; editable names and step motions are labels only.
+  telemetryBridge.publish({type:'editor_catalog',machine:model.name,
+    states:model.nodes.map(node=>({id:node.stateId,name:node.name||node.stateId,
+      motor:node.params,
+      timers:model.edges.filter(edge=>edge.from===node.id&&edge.trigger?.type==='timer')
+        .map(edge=>({duration_ms:edge.trigger.duration_ms,
+          timerParameter:edge.trigger.timerParameter,macro:edge.trigger.macro})),
+      steps:(node.sequence||[]).map(step=>({
+        name:step.name||step.state,motor:step.params}))})),parameters});
+}
+
+function telemetryGraphSignature(){
+  const byNode=new Map(model.nodes.map(n=>[n.id,n.stateId]));
+  return JSON.stringify({machine:model.name,initial:model.nodes.find(n=>n.initial)?.stateId,
+    states:model.nodes.map(n=>({id:n.stateId,type:n.type,motion:n.state,params:n.params,
+      steps:(n.sequence||[]).map(s=>({motion:s.state,params:s.params,
+        out:s.out_transitions.map(t=>({next:t.next_step,trigger:t.trigger}))}))})),
+    edges:model.edges.map(e=>({from:byNode.get(e.from),to:byNode.get(e.to),trigger:e.trigger}))});
+}
+
+function telemetryMapping(){
+  if(!LIVE_STATE.connected)return {valid:false,warning:''};
+  if(!LIVE_STATE.helloMachine || LIVE_STATE.protocol!==1)return {valid:false,warning:'Esperando hello del firmware.'};
+  if(!recipeIdentity)return {valid:false,warning:'Cargar la receta del firmware para ver el grafo.'};
+  if(LIVE_STATE.helloMachine!==model.name || LIVE_STATE.foreignMachine)return {valid:false,
+    warning:'⚠ Firmware: '+(LIVE_STATE.foreignMachine||LIVE_STATE.helloMachine)+' · Editor: '+model.name+'. Grafo en vivo deshabilitado.'};
+  if(telemetryBaseline!==null && telemetryGraphSignature()!==telemetryBaseline)
+    return {valid:false,warning:'Editor modified after connection. Live graph mapping may be stale. Reconnect/reload matching recipe.'};
+  if(LIVE_STATE.currentState && !model.nodes.some(n=>n.stateId===LIVE_STATE.currentState))
+    return {valid:false,warning:'Unknown runtime state: '+LIVE_STATE.currentState};
+  return {valid:true,warning:''};
+}
+
+function telemetryEdgeMatches(edge,transition){
+  const from=node(edge.from),to=node(edge.to);
+  if(!from||!to||from.stateId!==transition.from||to.stateId!==transition.to)return false;
+  const trigger=normalizeTrigger(edge);
+  if(transition.condition==='TIMER')
+    return trigger.type==='timer' && (trigger.timerParameter || transition.timerMs===undefined ||
+      Number(trigger.duration_ms)===Number(transition.timerMs));
+  if(transition.condition==='COMPLETION')return trigger.type==='completion';
+  if(trigger.type!=='macro')return false;
+  const expression=(trigger.terms||[]).map((term,i)=>(i?' '+trigger.operators[i-1]+' ':'')+term).join('');
+  return expression===transition.condition;
+}
+
+function liveCondition(trigger){
+  if(trigger.type==='timer'){
+    const p=model.parameters?.find(item=>item.id===Number(trigger.timerParameter));
+    const value=p?(tuning.machine===model.name?tuning.values.get(p.key):undefined)??p.default:
+      Number(trigger.duration_ms);
+    return LIVE_STATE.stateElapsedMs>=value;
+  }
+  if(trigger.type==='completion')return null;
+  const value=id=>{
+    if(id==='START_ACTIVE')return LIVE_STATE.sensors.start;
+    const ir=id.match(/^IR([1-7])_DETECTED$/);if(ir)return LIVE_STATE.sensors.ir[Number(ir[1])-1];
+    if(id==='LINE_LEFT_DETECTED')return LIVE_STATE.sensors.line[0];
+    if(id==='LINE_RIGHT_DETECTED')return LIVE_STATE.sensors.line[1];
+    return null;
+  };
+  const terms=(trigger.terms||[]).map(value);
+  if(!terms.length||terms.includes(null))return null;
+  return terms.slice(1).reduce((result,next,i)=>(trigger.operators?.[i]==='OR'?result||next:result&&next),terms[0]);
+}
+
+function renderLiveConditions(){
+  const valid=telemetryMapping().valid;
+  for(const element of edgesLayer.querySelectorAll('[data-edge-id]')){
+    element.classList.remove('live-condition-true','live-condition-false');
+    if(!valid)continue;
+    const edge=model.edges.find(item=>item.id===element.getAttribute('data-edge-id'));
+    if(!edge||node(edge.from)?.stateId!==LIVE_STATE.currentState)continue;
+    const result=liveCondition(normalizeTrigger(edge));
+    if(result!==null)element.classList.add(result?'live-condition-true':'live-condition-false');
+  }
+}
+
+function renderLiveGraphState(){
+  for(const element of nodesLayer.querySelectorAll('[data-state-id]')){
+    element.classList.remove('live-current-state','live-last-state','live-active-step');
+    for(const label of element.querySelectorAll('.live-step-label'))label.remove();
+  }
+  for(const element of edgesLayer.querySelectorAll('[data-edge-id]'))element.classList.remove('live-transition');
+  const mapping=telemetryMapping();
+  if(!mapping.valid)return mapping;
+  const last=LIVE_STATE.lastTransition;
+  for(const element of nodesLayer.querySelectorAll('[data-state-id]')){
+    const id=element.getAttribute('data-state-id');
+    if(id===LIVE_STATE.currentState){
+      element.classList.add('live-current-state');
+      if(LIVE_STATE.currentStep!==null){
+        element.classList.add('live-active-step');
+        const label=document.createElementNS('http://www.w3.org/2000/svg','text');
+        label.setAttribute('class','live-step-label');label.setAttribute('x','14');label.setAttribute('y','63');
+        label.textContent='STEP '+LIVE_STATE.currentStep;element.appendChild(label);
+      }
+    }
+    if(last?.type==='fsm_transition'&&id===last.from)element.classList.add('live-last-state');
+  }
+  if(last?.type==='fsm_transition'){
+    const edge=model.edges.find(candidate=>telemetryEdgeMatches(candidate,last));
+    if(edge)for(const element of edgesLayer.querySelectorAll('[data-edge-id]'))
+      if(element.getAttribute('data-edge-id')===edge.id)element.classList.add('live-transition');
+  }
+  renderLiveConditions();
+  return mapping;
+}
+
+function renderTelemetryStatus(){
+  const dot=document.getElementById('telemetryDot');
+  const mapping=telemetryMapping();
+  dot.textContent=LIVE_STATE.connected?(mapping.warning?'⚠ '+mapping.warning:'● LIVE'):'○ TELEMETRY DISCONNECTED';
+  dot.className=LIVE_STATE.connected?(mapping.warning?'telemetry-warning':'telemetry-ok'):'';
+  dot.title=mapping.warning|| (LIVE_STATE.connected?(LIVE_STATE.machine||'Robot connected'):'Open Telemetry Console to connect');
+}
+
+function scheduleTelemetryRender(reason){
+  if(reason==='hello')telemetryBaseline=recipeIdentity && LIVE_STATE.helloMachine===model.name ? telemetryGraphSignature() : null;
+  if(reason==='connection' && !LIVE_STATE.connected)telemetryBaseline=null;
+  
+  if(['hello','event','connection','error','clear','pause'].includes(reason)){
+    if(telemetryRenderTimer!==null){clearTimeout(telemetryRenderTimer);telemetryRenderTimer=null;}
+    if(['hello','event','connection'].includes(reason))renderLiveGraphState();
+    renderTelemetryStatus();return;
+  }
+  if(telemetryRenderTimer===null)
+    telemetryRenderTimer=setTimeout(()=>{telemetryRenderTimer=null;renderLiveConditions();renderTelemetryStatus();},50);
+}
+
+function validateTelemetryRecipe(){
+  telemetryBaseline=recipeIdentity && LIVE_STATE.helloMachine===model.name ? telemetryGraphSignature() : null;
+  renderLiveGraphState();
+  renderTelemetryStatus();
+  publishTelemetryCatalog();
+}
+
+let telemetryWindow=null;
+document.getElementById('telemetryToggleBtn').onclick=()=>{
+  if(telemetryWindow && !telemetryWindow.closed){telemetryWindow.focus();return;}
+  // Reuse an already named console without navigating/reloading its live session.
+  telemetryWindow=window.open('','mbaretechTelemetry','width=1200,height=850');
+  if(!telemetryWindow){status('Allow pop-ups to open the telemetry console.');return;}
+  if(telemetryWindow.location.href==='about:blank')
+    telemetryWindow.location.href='telemetry_console.html';
+  telemetryWindow.focus();
+};
+
+const DEBUG_LOG = [];
+let DEBUG_LOGGING = true;
+
+const UI_STATE = {
+  stateOutOpen:new Set(),
+  subfsmOutOpen:new Set(),
+  stepOutOpen:new Set(),
+  liveStateClosed:new Set(),
+  // Sidebar markup persists while the inspector is redrawn.
+  availableMacrosOpen:false
+};
+
+function rememberFoldState(detailsEl,key,setRef){
+  if(!detailsEl)return;
+  detailsEl.addEventListener('toggle',()=>{
+    if(detailsEl.open)setRef.add(key);
+    else setRef.delete(key);
+  });
+}
+
+
+function sanitizeLogValue(value){
+  if(value===undefined)return null;
+  if(value===null)return null;
+  if(typeof value==='string')return value.length>300 ? value.slice(0,300)+'…' : value;
+  if(typeof value==='number'||typeof value==='boolean')return value;
+  if(Array.isArray(value))return value.slice(0,20).map(sanitizeLogValue);
+  if(typeof value==='object'){
+    const out={};
+    Object.entries(value).slice(0,30).forEach(([k,v])=>out[k]=sanitizeLogValue(v));
+    return out;
+  }
+  return String(value);
+}
+
+function logEvent(event,details={}){
+  if(!DEBUG_LOGGING)return;
+  const entry={
+    ts:new Date().toISOString(),
+    event,
+    details:sanitizeLogValue(details)
+  };
+  DEBUG_LOG.push(entry);
+  const count=document.getElementById('debugCount');
+  if(count)count.textContent=`${DEBUG_LOG.length} event${DEBUG_LOG.length===1?'':'s'}`;
+  try{console.debug('[FSM GUI]',entry)}catch(_){}
+}
+
+function formatDebugLog(){
+  const header=[
+    '# FSM Context Editor debug log',
+    `# generated: ${new Date().toISOString()}`,
+    `# events: ${DEBUG_LOG.length}`,
+    ''
+  ];
+  return header.concat(
+    DEBUG_LOG.map(x=>`[${x.ts}] ${x.event} ${JSON.stringify(x.details)}`)
+  ).join('\n');
+}
+
+function downloadTextFile(filename,textContent,mime='text/plain'){
+  const blob=new Blob([textContent],{type:mime});
+  const a=document.createElement('a');
+  a.href=URL.createObjectURL(blob);
+  a.download=filename;
+  a.click();
+  setTimeout(()=>URL.revokeObjectURL(a.href),0);
+}
+
+window.addEventListener('error',ev=>{
+  logEvent('runtime_error',{
+    message:ev.message,
+    filename:ev.filename,
+    lineno:ev.lineno,
+    colno:ev.colno
+  });
+});
+
+window.addEventListener('unhandledrejection',ev=>{
+  logEvent('unhandled_rejection',{reason:String(ev.reason)});
+});
+
+
+function esc(s){return String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#039;'}[c]))}
+function status(s){statusEl.textContent=s}
+function node(id){return model.nodes.find(n=>n.id===id)}
+function edge(id){return model.edges.find(e=>e.id===id)}
+function point(evt){const p=svg.createSVGPoint();p.x=evt.clientX;p.y=evt.clientY;return p.matrixTransform(svg.getScreenCTM().inverse())}
+function normalizeId(name){
+  let s=String(name||'STATE').trim().toUpperCase().replace(/[^A-Z0-9_]/g,'_').replace(/_+/g,'_');
+  if(/^[0-9]/.test(s))s='S_'+s;
+  return s||'STATE';
+}
+function setMode(m){
+  model.mode=m;
+  model.transitionSource=null;
+  if(m!=='add-base') model.pendingBaseState=null;
+  document.getElementById('selectTool').classList.toggle('active',m==='select');
+  const transitionTool=document.getElementById('transitionTool');
+  if(transitionTool)transitionTool.classList.toggle('active',m==='transition');
+}
+function returnToSelect(message='Select mode'){
+  setMode('select');
+  status(message);
+}
+function select(s){
+  model.selected=s;
+  if(s)logEvent('selection_changed',s);
+  else logEvent('selection_cleared',{});
+  renderInspector();
+}
+
+function renderStateLibrary(){
+  const root=document.getElementById('stateLibrary');
+  const states=recipeIdentity?model.nodes.map(n=>({id:n.stateId,label:n.name||n.stateId,type:n.type})):[];
+  root.innerHTML=states.length?states.map(s=>`
+    <div class="state-row" data-id="${s.id}">
+      <div class="state-main">
+        <div class="state-label">${esc(s.label)}</div>
+      </div>
+      <button class="placeState" data-id="${s.id}" title="Agregar una instancia con ID único">＋</button>
+    </div>
+  `).join(''):'<div class="mini">Load a recipe to see its states.</div>';
+  const subfsmSelect=document.getElementById('subfsmBaseState');
+  const previous=subfsmSelect.value;
+  subfsmSelect.innerHTML=states.map(s=>`<option value="${esc(s.id)}">${esc(s.label)} (${esc(s.id)})</option>`).join('');
+  const preferred=states.find(s=>s.id===previous)||states.find(s=>s.type==='subfsm')||states[0];
+  if(preferred)subfsmSelect.value=preferred.id;
+  document.getElementById('subfsmBtn').disabled=!states.length;
+
+  root.querySelectorAll('.placeState').forEach(btn=>{
+    btn.onclick=()=>{
+      model.mode='add-base';
+      model.pendingBaseState=btn.dataset.id;
+      model.transitionSource=null;
+      document.getElementById('selectTool').classList.remove('active');
+      document.getElementById('transitionTool')?.classList.remove('active');
+      status(`Click canvas to add ${model.nodes.find(n=>n.stateId===model.pendingBaseState)?.name||model.pendingBaseState}`);
+    };
+  });
+}
+
+
+
+function renderMacroLibrary(){
+  const root=document.getElementById('macroLibrary');
+  const fold=document.getElementById('availableMacrosFold');
+  if(fold&&!fold.dataset.bound){
+    fold.dataset.bound='1';fold.open=UI_STATE.availableMacrosOpen;
+    fold.addEventListener('toggle',()=>UI_STATE.availableMacrosOpen=fold.open);
+  }
+  // Sólo las condiciones referenciadas por la receta aparecen como disponibles.
+  const referenced=new Set();
+  const collect=trigger=>{if(trigger?.type==='macro')for(const term of trigger.terms||[])referenced.add(term);};
+  model.edges.forEach(item=>collect(item.trigger));
+  model.nodes.forEach(state=>(state.sequence||[]).forEach(step=>(step.out_transitions||[])
+    .forEach(item=>collect(item.trigger))));
+  const available=recipeIdentity?TRANSITION_MACROS.filter(m=>referenced.has(m.id)):[];
+  let selected=root.dataset.selected || available[0]?.id || '';
+  if(selected&&!available.some(m=>m.id===selected))selected=available[0]?.id||'';
+  root.dataset.selected=selected;
+  root.innerHTML=available.length?available.map(m=>`
+    <div class="macro-row ${m.id===selected?'active':''}" data-id="${m.id}">
+      <div class="macro-main" data-id="${m.id}">
+        <div class="macro-id">${esc(m.id)}</div>
+        <div class="macro-label">${esc(m.label||'')}</div>
+      </div>
+      <button class="editMacroRow" data-id="${m.id}" title="View condition">⌕</button>
+    </div>
+  `).join(''):'<div class="mini">No sensor conditions used by this recipe.</div>';
+
+  function selectMacro(id,focusName=false){
+    root.dataset.selected=id;
+    const m=macroById(id);
+    const nameInput=document.getElementById('macroNameInput');
+    const labelInput=document.getElementById('macroLabelInput');
+
+    if(m){
+      if(nameInput)nameInput.value=m.id;
+      if(labelInput)labelInput.value=m.label||'';
+    }
+
+    root.querySelectorAll('.macro-row').forEach(row=>{
+      row.classList.toggle('active',row.dataset.id===id);
+    });
+
+    if(focusName && nameInput){
+      nameInput.focus();
+      nameInput.select();
+    }
+  }
+
+  root.querySelectorAll('.macro-main').forEach(el=>el.onclick=()=>{
+    selectMacro(el.dataset.id,false);
+  });
+
+  root.querySelectorAll('.editMacroRow').forEach(btn=>btn.onclick=()=>{
+    selectMacro(btn.dataset.id,true);
+  });
+
+  if(selected){
+    selectMacro(selected,false);
+  }else{
+    const nameInput=document.getElementById('macroNameInput');
+    const labelInput=document.getElementById('macroLabelInput');
+    if(nameInput)nameInput.value='';
+    if(labelInput)labelInput.value='';
+  }
+
+}
+
+function requireFirmware() {
+  if (firmwareProject.api) return true;
+  alert('Abre el proyecto con Import Header antes de editar.');
+  return false;
+}
+
+function addBaseNode(x, y, templateId) {
+  if (!requireFirmware()) return null;
+  if (model.nodes.length >= 255) { status('La receta admite como máximo 255 estados.'); return null; }
+  let stateId;
+  try { stateId = firmwareProject.allocateStateId(templateId, model.nodes.map(item=>item.stateId)); }
+  catch (error) { status(error.message); return null; }
+  const id = 'S' + model.nextNode++;
+  const template = model.nodes.find(item=>item.stateId===templateId || item.templateStateId===templateId);
+  let added;
+  if (template) {
+    // Copiar comportamiento sin compartir objetos, IDs de pasos ni estado inicial.
+    added = structuredClone(template);
+    Object.assign(added, {id, stateId, templateStateId:templateId,
+      name:firmwareProject.api.metadata[stateId]?.name||stateId, x, y, initial:false});
+    const stepIds = new Map((added.sequence||[]).map(step=>[step.id, 'P'+model.nextStep++]));
+    for (const step of added.sequence||[]) {
+      step.id = stepIds.get(step.id);
+      for (const edge of step.out_transitions) {
+        edge.id = 'ST'+model.nextStepTransition++;
+        if (edge.next_step !== 'COMPLETE') edge.next_step = stepIds.get(edge.next_step) || 'MISSING_STEP';
+      }
+    }
+    const outgoing = model.edges.filter(edge=>edge.from===template.id).map(edge=>({
+      ...structuredClone(edge), id:'T'+model.nextEdge++, from:id, to:edge.to===template.id?id:edge.to
+    }));
+    model.edges.push(...outgoing);
+  } else {
+    const motion = RecipeCore.freshStep(firmwareProject.api).motion;
+    added = {id, stateId, templateStateId:templateId, type:'base', state:motion,
+      name:firmwareProject.api.metadata[stateId]?.name||stateId,
+      x, y, w:165, h:66, initial:model.nodes.length===0,
+      context:firmwareProject.api.metadata[stateId]?.description||'',
+      params:{left_speed_pct:0,right_speed_pct:0}, sequence:[]};
+  }
+  model.nodes.push(added);
+  select({type:'node', id});
+  render(); renderStateLibrary();
+  returnToSelect('Instancia agregada: '+stateId);
+  return id;
+}
+
+function addSubFSMNode(x, y) {
+  if (!requireFirmware()||!recipeIdentity)return null;
+  if(model.nodes.length>=255){status('La receta admite como máximo 255 estados.');return null;}
+  const baseId=document.getElementById('subfsmBaseState').value;
+  if (!model.nodes.some(item=>item.stateId===baseId)){
+    status('Selecciona un estado de la receta para crear el SubFSM.');return null;
+  }
+  let stateId;
+  try {stateId=firmwareProject.allocateStateId(baseId,model.nodes.map(item=>item.stateId));}
+  catch(error){status(error.message);return null;}
+  // Un SubFSM nuevo empieza limpio: clonar las salidas de un estado MOTOR
+  // dejaría timers y destinos incompatibles con la secuencia nueva.
+  const id='S'+model.nextNode++;
+  const neutralMotion=RecipeCore.freshStep(firmwareProject.api).motion;
+  const added={id,stateId,templateStateId:baseId,type:'subfsm',state:neutralMotion,
+    name:stateId,x,y,w:190,h:72,initial:model.nodes.length===0,context:'',
+    params:{left_speed_pct:0,right_speed_pct:0},allowHoldOnCompletion:false,
+    sequence:[{
+    id:'P' + model.nextStep++, state:neutralMotion,
+    params:{left_speed_pct:0, right_speed_pct:0}, out_transitions:[]
+  }]};
+  model.nodes.push(added);
+  select({type:'node',id});render();renderStateLibrary();
+  returnToSelect('SubFSM creado: '+stateId);
+  return id;
+}
+
+function timerMacroBaseForState(stateNode){
+  const raw=(stateNode?.name || stateNode?.state || 'STATE')
+    .trim()
+    .toUpperCase()
+    .replace(/[^A-Z0-9_]/g,'_')
+    .replace(/_+/g,'_')
+    .replace(/^_+|_+$/g,'');
+  return `${raw || 'STATE'}_TIMER`;
+}
+
+function allTimerMacroNames(excludeId=null){
+  const names=[];
+
+  model.edges.forEach(e=>{
+    if(e.id===excludeId)return;
+    const t=normalizeTrigger(e);
+    if(t?.type==='timer' && t.macro)names.push(t.macro);
+  });
+
+  model.nodes.filter(n=>n.type==='subfsm').forEach(n=>{
+    (n.sequence||[]).forEach(step=>{
+      (step.out_transitions||[]).forEach(st=>{
+        if(st.id===excludeId)return;
+        if(st.trigger?.type==='timer' && st.trigger.macro)names.push(st.trigger.macro);
+      });
+    });
+  });
+
+  return new Set(names);
+}
+
+function uniqueTimerMacroForState(stateNode,excludeEdgeId=null){
+  const base=timerMacroBaseForState(stateNode);
+  const used=allTimerMacroNames(excludeEdgeId);
+  if(!used.has(base))return base;
+  let i=2;
+  while(used.has(`${base}_${i}`))i++;
+  return `${base}_${i}`;
+}
+
+
+function stepTimerMacroBase(subfsm,step){
+  const sf=String(subfsm?.name||'SUBFSM').trim().toUpperCase().replace(/[^A-Z0-9_]/g,'_').replace(/_+/g,'_');
+  const st=String(step?.state||step?.id||'STEP').trim().toUpperCase().replace(/[^A-Z0-9_]/g,'_').replace(/_+/g,'_');
+  return `${sf}_${st}_TIMER`;
+}
+
+function uniqueStepTimerMacro(subfsm,step,excludeId=null){
+  const base=stepTimerMacroBase(subfsm,step);
+  const used=allTimerMacroNames(excludeId);
+  if(!used.has(base))return base;
+  let i=2;
+  while(used.has(`${base}_${i}`))i++;
+  return `${base}_${i}`;
+}
+
+function normalizeTimerMacroName(value,stateNode,edgeId=null){
+  let macro=String(value||'')
+    .trim()
+    .toUpperCase()
+    .replace(/[^A-Z0-9_]/g,'_')
+    .replace(/_+/g,'_')
+    .replace(/^_+|_+$/g,'');
+  if(!macro)macro=uniqueTimerMacroForState(stateNode,edgeId);
+
+  const used=allTimerMacroNames(edgeId);
+  if(!used.has(macro))return macro;
+
+  const base=macro;
+  let i=2;
+  while(used.has(`${base}_${i}`))i++;
+  return `${base}_${i}`;
+}
+
+function defaultTriggerForNode(n){
+  return n?.type==='subfsm'
+    ? {type:'completion'}
+    : {
+        type:'timer',
+        macro:uniqueTimerMacroForState(n),
+        duration_ms:1000
+      };
+}
+
+function normalizeTrigger(edge) {
+  if (!edge.trigger) throw new Error('Transición incompatible: falta trigger.');
+  return edge.trigger;
+}
+
+function setEdgeTrigger(e,trigger){
+  e.trigger=trigger;
+  delete e.type;
+  delete e.time_ms;
+  delete e.condition;
+  logEvent('transition_condition_changed',{
+    transition:e.id,
+    source_state:node(e.from)?.name,
+    next_state:node(e.to)?.name,
+    trigger
+  });
+  renderMacroLibrary();
+}
+
+function addOutTransition(sourceId){
+  const src=node(sourceId);
+  if(!src)return;
+  const targets=model.nodes;
+  const initialTarget=targets[0]?.id || '';
+  const id='T'+model.nextEdge++;
+  const trigger=defaultTriggerForNode(src);
+  model.edges.push({
+    id,
+    from:sourceId,
+    to:initialTarget,
+    trigger,
+    action:''
+  });
+  logEvent('out_transition_added',{
+    id,
+    source_state:src.name,
+    next_state:initialTarget ? node(initialTarget)?.name : null,
+    condition:trigger,
+    destination_pending:!initialTarget
+  });
+  render();
+  renderInspector();
+  status(initialTarget ? 'Out transition added' : 'Out transition added — select next state when available');
+}
+
+function transitionExpression(trigger){
+  if(!trigger)return 'CONDITION';
+  if(trigger.type==='timer'){
+    const parameter=model.parameters?.find(p=>p.id===Number(trigger.timerParameter));
+    if(parameter){
+      // El grafo muestra el overlay RAM sin cambiar el default exportable.
+      const linked=tuning.machine===model.name;
+      const pending=tuning.pending.get(parameter.key);
+      const running=linked&&LIVE_STATE.connected?tuning.values.get(parameter.key):undefined;
+      if(Number.isInteger(pending))return `${parameter.key} · ${pending}ms pending`;
+      if(Number.isInteger(running))return `${parameter.key} · ${running}ms live`;
+      return `${parameter.key} · ${parameter.default}ms`;
+    }
+    return `${trigger.macro||'TIMER'} · ${Number(trigger.duration_ms)||0}ms`;
+  }
+  if(trigger.type==='completion')return 'ON_COMPLETION';
+  const terms=trigger.terms||[];
+  const ops=trigger.operators||[];
+  let out=terms[0]||'CONDITION';
+  for(let i=1;i<terms.length;i++)out+=` ${ops[i-1]||'AND'} ${terms[i]}`;
+  return out;
+}
+
+function addEdge(from,to){
+  const id='T'+model.nextEdge++;
+  model.edges.push({
+    id,from,to,
+    trigger:model.transitionKind==='timer'
+      ? {type:'timer',macro:uniqueTimerMacroForState(node(from)),duration_ms:1000}
+      : {type:'macro',terms:[TRANSITION_MACROS[0]?.id||'CONDITION'],operators:[]},
+    action:''
+  });
+  model.transitionSource=null;
+  select({type:'edge',id});
+  render();
+  returnToSelect('Transition created');
+}
+
+function deleteSelected(){
+  if(!model.selected)return;
+  if(model.selected.type==='node'){
+    const id=model.selected.id;
+    const n=node(id);
+    logEvent('state_instance_deleted',{id,name:n?.name,type:n?.type});
+    UI_STATE.stateOutOpen.delete(id);
+    UI_STATE.subfsmOutOpen.delete(id);
+    (n?.sequence||[]).forEach(step=>UI_STATE.stepOutOpen.delete(step.id));
+    model.nodes=model.nodes.filter(n=>n.id!==id);
+    model.edges=model.edges.filter(e=>e.from!==id&&e.to!==id);
+    if(model.nodes.length&&!model.nodes.some(n=>n.initial))model.nodes[0].initial=true;
+  } else {
+    const e=edge(model.selected.id);
+    logEvent('transition_deleted',{id:e?.id,from:node(e?.from)?.name,to:node(e?.to)?.name});
+    model.edges=model.edges.filter(e=>e.id!==model.selected.id);
+  }
+  model.selected=null;render();renderInspector();renderStateLibrary();
+}
+
+function edgePath(a,b,e){
+  const ax=a.x+a.w/2, ay=a.y+a.h/2;
+  const bx=b.x+b.w/2, by=b.y+b.h/2;
+
+  // Multiple self-loops are nested at increasing radii.
+  if(a.id===b.id){
+    const loops=model.edges.filter(x=>x.from===a.id && x.to===a.id);
+    const index=Math.max(0,loops.findIndex(x=>x.id===e.id));
+    const spread=22 + index*24;
+    const x=a.x+a.w-24;
+    const y=a.y+4;
+    return {
+      d:`M ${x} ${y+13}
+         C ${x+70+spread} ${y-55-spread},
+           ${x+70+spread} ${y+90+spread},
+           ${x} ${y+52}`,
+      lx:x+62+spread,
+      ly:y+5-index*8
+    };
+  }
+
+  // Treat A->B and B->A as the same visual pair.  Each transition gets a
+  // unique offset from the straight line, preventing arrows/labels from
+  // sitting exactly on top of each other.
+  const pair=model.edges
+    .filter(x=>
+      (x.from===a.id && x.to===b.id) ||
+      (x.from===b.id && x.to===a.id)
+    )
+    .sort((x,y)=>String(x.id).localeCompare(String(y.id),undefined,{numeric:true}));
+
+  const pairIndex=Math.max(0,pair.findIndex(x=>x.id===e.id));
+  const pairCount=Math.max(1,pair.length);
+
+  // Canonical direction fixes the side of the curve even for reverse arrows.
+  const first=a.id < b.id ? a : b;
+  const second=a.id < b.id ? b : a;
+  const cax=first.x+first.w/2, cay=first.y+first.h/2;
+  const cbx=second.x+second.w/2, cby=second.y+second.h/2;
+  const cdx=cbx-cax, cdy=cby-cay;
+  const clen=Math.max(1,Math.hypot(cdx,cdy));
+  const cnx=-cdy/clen, cny=cdx/clen;
+
+  // 52 px spacing is large enough that labels remain readable.
+  let offset=(pairIndex-(pairCount-1)/2)*52;
+
+  // For a lone pair, keep the clean straight connection.
+  if(pairCount===1)offset=0;
+
+  const dx=bx-ax,dy=by-ay;
+  const len=Math.max(1,Math.hypot(dx,dy));
+  const ux=dx/len,uy=dy/len;
+
+  // Approximate intersection with node boundary.
+  const ar=Math.min(a.w,a.h)/2;
+  const br=Math.min(b.w,b.h)/2;
+  const sx=ax+ux*ar, sy=ay+uy*ar;
+  const tx=bx-ux*br, ty=by-uy*br;
+
+  const mx=(sx+tx)/2 + cnx*offset;
+  const my=(sy+ty)/2 + cny*offset;
+
+  const labelLift=offset===0 ? 13 : (offset>0 ? 11 : -11);
+
+  return {
+    d:`M ${sx} ${sy} Q ${mx} ${my} ${tx} ${ty}`,
+    lx:mx+cnx*labelLift,
+    ly:my+cny*labelLift
+  };
+}
+
+function edgeLabel(e){
+  return transitionExpression(normalizeTrigger(e));
+}
+
+function refreshTimerGraphLabels(){
+  // Sólo cambia el texto SVG; los paquetes de telemetría no reconstruyen el grafo.
+  for(const label of edgesLayer.querySelectorAll('[data-edge-label]')){
+    const item=edge(label.dataset.edgeLabel);
+    if(item)label.textContent=edgeLabel(item);
+  }
+}
+
+function nodeSubtitle(n){
+  if(n.type==='subfsm') return `${n.id} • SubFSM • ${n.sequence.length} steps${n.initial?' • initial':''}`;
+  return `${n.id}${n.initial?' • initial':''}`;
+}
+
+function render(){
+  edgesLayer.innerHTML='';nodesLayer.innerHTML='';
+  for(const e of model.edges){
+    const a=node(e.from),b=node(e.to);if(!a||!b)continue;
+    const ep=edgePath(a,b,e),g=document.createElementNS('http://www.w3.org/2000/svg','g');
+    const hit=document.createElementNS('http://www.w3.org/2000/svg','path');
+    hit.setAttribute('d',ep.d);hit.setAttribute('class','edge-hit');
+    hit.onclick=ev=>{ev.stopPropagation();if(model.mode==='select'){select({type:'edge',id:e.id});render()}};
+    g.appendChild(hit);
+    const p=document.createElementNS('http://www.w3.org/2000/svg','path');
+    p.setAttribute('d',ep.d);p.setAttribute('class','edge'+(model.selected?.type==='edge'&&model.selected.id===e.id?' selected':''));
+    p.setAttribute('data-edge-id',e.id);
+    g.appendChild(p);
+    const t=document.createElementNS('http://www.w3.org/2000/svg','text');
+    t.setAttribute('x',ep.lx);t.setAttribute('y',ep.ly);t.setAttribute('text-anchor','middle');t.setAttribute('class','edge-label');
+    t.dataset.edgeLabel=e.id;
+    t.textContent=edgeLabel(e);g.appendChild(t);
+    edgesLayer.appendChild(g);
+  }
+
+  for(const n of model.nodes){
+    const g=document.createElementNS('http://www.w3.org/2000/svg','g');
+    g.setAttribute('transform',`translate(${n.x} ${n.y})`);
+    g.setAttribute('class','node '+(n.type==='subfsm'?'subfsm ':'')+(model.selected?.type==='node'&&model.selected.id===n.id?'selected':''));
+    g.setAttribute('data-state-id',n.stateId);
+    const r=document.createElementNS('http://www.w3.org/2000/svg','rect');r.setAttribute('width',n.w);r.setAttribute('height',n.h);r.setAttribute('rx','10');g.appendChild(r);
+    if(n.initial){const c=document.createElementNS('http://www.w3.org/2000/svg','circle');c.setAttribute('cx','12');c.setAttribute('cy','12');c.setAttribute('r','5');c.setAttribute('class','initial');g.appendChild(c)}
+    const tt=document.createElementNS('http://www.w3.org/2000/svg','text');tt.setAttribute('x','14');tt.setAttribute('y','29');tt.setAttribute('class','title');tt.textContent=n.name;g.appendChild(tt);
+    const st=document.createElementNS('http://www.w3.org/2000/svg','text');st.setAttribute('x','14');st.setAttribute('y','49');st.setAttribute('class','subtitle');st.textContent=nodeSubtitle(n);g.appendChild(st);
+
+    g.onmousedown=ev=>{
+      ev.stopPropagation();
+      if(model.mode==='transition')return;
+      const p=point(ev);model.dragging=n.id;model.dragOffset={x:p.x-n.x,y:p.y-n.y};select({type:'node',id:n.id});render();
+    };
+    g.onclick=ev=>{
+      ev.stopPropagation();
+      if(model.mode==='transition'){
+        if(!model.transitionSource){
+          model.transitionSource=n.id;select({type:'node',id:n.id});status(`Source: ${n.name}. Select destination.`);
+        }else{
+          addEdge(model.transitionSource,n.id);
+        }
+      }else if(model.mode==='select'){
+        select({type:'node',id:n.id});render();
+      }
+    };
+    nodesLayer.appendChild(g);
+  }
+  renderLiveGraphState();
+  updateEditorStartButton();
+}
+
+
+function transitionTypeOptions(sourceNode,selected){
+  const types=sourceNode?.type==='subfsm'
+    ? [['completion','Completion'],['macro','Macro / sensor'],['timer','Timer']]
+    : [['timer','Timer'],['macro','Macro / sensor']];
+  return types.map(([v,l])=>`<option value="${v}" ${v===selected?'selected':''}>${l}</option>`).join('');
+}
+
+function renderInlineMacroBuilder(e,root){
+  const trigger=normalizeTrigger(e);
+  if(trigger.type!=='macro')return;
+  if(!trigger.terms?.length)trigger.terms=[TRANSITION_MACROS[0]?.id||'CONDITION'];
+  trigger.operators=trigger.operators||[];
+
+  root.innerHTML=trigger.terms.map((term,i)=>`
+    <div style="display:grid;grid-template-columns:${i>0?'68px ':''}1fr 30px;gap:5px;margin-top:5px">
+      ${i>0?`<select class="outOp" data-i="${i-1}">
+        <option value="AND" ${(trigger.operators[i-1]||'AND')==='AND'?'selected':''}>AND</option>
+        <option value="OR" ${(trigger.operators[i-1]||'AND')==='OR'?'selected':''}>OR</option>
+      </select>`:''}
+      <select class="outMacro" data-i="${i}">
+        ${TRANSITION_MACROS.map(m=>`<option value="${m.id}" ${m.id===term?'selected':''}>${esc(m.id)}</option>`).join('')}
+      </select>
+      <button class="outTermDel danger" data-i="${i}">×</button>
+    </div>
+  `).join('') + `<button class="outAddTerm" style="width:100%;margin-top:6px">＋ condition</button>`;
+
+  root.querySelectorAll('.outMacro').forEach(el=>el.onchange=x=>{
+    trigger.terms[+x.target.dataset.i]=x.target.value;
+    setEdgeTrigger(e,trigger);render();
+  });
+  root.querySelectorAll('.outOp').forEach(el=>el.onchange=x=>{
+    trigger.operators[+x.target.dataset.i]=x.target.value;
+    setEdgeTrigger(e,trigger);render();
+  });
+  root.querySelectorAll('.outTermDel').forEach(el=>el.onclick=x=>{
+    const i=+x.target.dataset.i;
+    trigger.terms.splice(i,1);
+    if(i===0)trigger.operators.splice(0,1); else trigger.operators.splice(i-1,1);
+    if(!trigger.terms.length)trigger.terms=[TRANSITION_MACROS[0]?.id||'CONDITION'];
+    setEdgeTrigger(e,trigger);renderInspector();render();
+  });
+  root.querySelector('.outAddTerm').onclick=()=>{
+    trigger.terms.push(TRANSITION_MACROS[0]?.id||'CONDITION');
+    if(trigger.terms.length>1)trigger.operators.push('AND');
+    setEdgeTrigger(e,trigger);renderInspector();render();
+  };
+}
+
+function renderOutTransitions(n){
+  const root=document.getElementById('outTransitions'); if(!root)return;
+  const outs=model.edges.filter(e=>e.from===n.id);
+
+  if(!outs.length){
+    root.innerHTML='<div class="empty">No out transitions configured.</div>';
+    return;
+  }
+
+  root.innerHTML=outs.map((e,index)=>{
+    const trg=normalizeTrigger(e);
+    return `
+      <div class="out-card" data-edge="${e.id}">
+        <div class="out-head">
+          <div class="json-actions"><span class="mini">Priority ${index+1}</span><button class="outMove" data-edge="${e.id}" data-dir="-1" title="Move condition up (higher priority)" ${index===0?'disabled':''}>↑</button><button class="outMove" data-edge="${e.id}" data-dir="1" title="Move condition down (lower priority)" ${index===outs.length-1?'disabled':''}>↓</button></div>
+          <button class="outDelete danger" data-edge="${e.id}">×</button>
+        </div>
+
+        <div class="out-row" style="margin-top:0">
+          <label>Next state</label>
+          <select class="outNext" data-edge="${e.id}">
+            <option value="" ${!e.to?'selected':''}>Select next state…</option>
+            ${model.nodes.map(target=>`<option value="${target.id}" ${target.id===e.to?'selected':''}>${esc(target.name)}</option>`).join('')}
+          </select>
+        </div>
+
+        <div class="out-row">
+          <label>Condition</label>
+          <select class="outType" data-edge="${e.id}">
+            ${transitionTypeOptions(n,trg.type)}
+          </select>
+        </div>
+
+        <div class="outDynamic" data-edge="${e.id}"></div>
+      </div>`;
+  }).join('');
+
+  outs.forEach(e=>{
+    const card=root.querySelector(`.out-card[data-edge="${e.id}"]`);
+    const dyn=card.querySelector('.outDynamic');
+    const trg=normalizeTrigger(e);
+
+    if(trg.type==='timer'){
+      if(!trg.macro)trg.macro=uniqueTimerMacroForState(n,e.id);
+      dyn.innerHTML=`
+        <div class="out-row">
+          <label>Timer macro</label>
+          <input class="outTimerMacro" data-edge="${e.id}" value="${esc(trg.macro)}">
+        </div>
+        <div class="out-row">
+          <label>Time (ms)</label>
+          <input class="outTimer" data-edge="${e.id}" type="number" min="0" step="10" value="${Number(trg.duration_ms)||0}">
+        </div>`;
+
+      dyn.querySelector('.outTimerMacro').onchange=x=>{
+        const macro=normalizeTimerMacroName(x.target.value,n,e.id);
+        setEdgeTrigger(e,{
+          type:'timer',
+          macro,
+          duration_ms:Number(trg.duration_ms)||0,
+          timerParameter:trg.timerParameter||0
+        });
+        x.target.value=macro;
+        render();
+      };
+
+      dyn.querySelector('.outTimer').oninput=x=>{
+        setEdgeTrigger(e,{
+          type:'timer',
+          macro:trg.macro||uniqueTimerMacroForState(n,e.id),
+          duration_ms:Math.max(0,Number(x.target.value)||0),
+          timerParameter:trg.timerParameter||0
+        });
+        render();
+      };
+    }else if(trg.type==='completion'){
+      dyn.innerHTML='<div class="mini" style="margin-top:7px">True when the SubFSM reaches the end of its sequence.</div>';
+    }else{
+      renderInlineMacroBuilder(e,dyn);
+      if(n.type==='subfsm'){
+        dyn.insertAdjacentHTML('afterbegin','<div class="mini" style="margin-top:7px">Interrupts the SubFSM immediately when true.</div>');
+      }
+    }
+  });
+
+  root.querySelectorAll('.outType').forEach(el=>el.onchange=x=>{
+    const e=edge(x.target.dataset.edge);
+    if(!e)return;
+    const type=x.target.value;
+    if(type==='timer')setEdgeTrigger(e,{
+      type:'timer',
+      macro:uniqueTimerMacroForState(n,e.id),
+      duration_ms:1000
+    });
+    else if(type==='completion')setEdgeTrigger(e,{type:'completion'});
+    else setEdgeTrigger(e,{type:'macro',terms:[TRANSITION_MACROS[0]?.id||'CONDITION'],operators:[]});
+    renderInspector();render();
+  });
+
+  root.querySelectorAll('.outNext').forEach(el=>el.onchange=x=>{
+    const e=edge(x.target.dataset.edge); if(!e)return;
+    e.to=x.target.value;
+    logEvent('transition_next_state_changed',{transition:e.id,next_state:node(e.to)?.name});
+    render();
+  });
+
+  root.querySelectorAll('.outDelete').forEach(el=>el.onclick=x=>{
+    const id=x.target.dataset.edge;
+    model.edges=model.edges.filter(e=>e.id!==id);
+    renderInspector();render();
+  });
+  // El orden de la tabla define prioridad de transición.
+  root.querySelectorAll('.outMove').forEach(button=>button.onclick=()=>{
+    moveOutTransition(button.dataset.edge,Number(button.dataset.dir));
+  });
+}
+
+function moveOutTransition(edgeId,direction){
+  const index=model.edges.findIndex(item=>item.id===edgeId);
+  if(index<0)return;
+  const source=model.edges[index].from;
+  const peers=model.edges.map((item,i)=>item.from===source?i:-1).filter(i=>i>=0);
+  const position=peers.indexOf(index),next=peers[position+direction];
+  if(next===undefined)return;
+  const [moved]=model.edges.splice(index,1);model.edges.splice(next,0,moved);
+  renderInspector();render();
+}
+
+function renameState(state,input){
+  const name=input.value.trim();
+  if(!name || model.nodes.some(other=>other.id!==state.id && other.name.trim().toLocaleLowerCase()===name.toLocaleLowerCase())){
+    alert(name?'Nombre de estado duplicado: '+name+'.':'El estado necesita un nombre.');
+    input.value=state.name;
+    return;
+  }
+  state.name=name;
+  input.value=name;
+  render();renderStateLibrary();
+}
+
+function useRunningValuesInRecipe(stateNode,refresh=true){
+  // Commit explícito: sólo modifica defaults de definiciones referenciadas.
+  const used=new Set();
+  const addMotor=item=>{if(item?.leftParameter)used.add(Number(item.leftParameter));
+    if(item?.rightParameter)used.add(Number(item.rightParameter));};
+  addMotor(stateNode.params);
+  for(const edge of model.edges.filter(edge=>edge.from===stateNode.id))
+    if(edge.trigger?.timerParameter)used.add(Number(edge.trigger.timerParameter));
+  for(const step of stateNode.sequence||[]){
+    addMotor(step.params);
+    for(const edge of step.out_transitions||[])
+      if(edge.trigger?.timerParameter)used.add(Number(edge.trigger.timerParameter));
+  }
+  for(const parameter of model.parameters||[]){
+    if(!used.has(parameter.id))continue;
+    const value=tuning.values.get(parameter.key);
+    if(Number.isInteger(value))parameter.default=value;
+  }
+  tuning.status='Valores en el modelo editable. Exporta/guarda para conservarlos.';
+  if(refresh){render();renderInspector();}
+}
+function refreshLiveInspector(){
+  refreshTimerGraphLabels();
+  // Nunca reemplazar un input enfocado: hacerlo descarta su edición parcial.
+  if(inspector.contains?.(document.activeElement)&&
+     document.activeElement?.matches?.('[data-live-param]'))return;
+  renderInspector();
+}
+function liveTuningStopped(){
+  return LIVE_STATE.connected&&tuning.machine===model.name&&
+    !LIVE_STATE.sensors.start&&!LIVE_STATE.running;
+}
+function renderLiveInspector(){
+  lastLiveEditAllowed=liveTuningStopped();
+  const selected=model.selected?.type==='node'?node(model.selected.id):
+    model.selected?.type==='edge'?node(edge(model.selected.id)?.from):null;
+  const sameMachine=LIVE_STATE.connected&&tuning.machine===model.name;
+  // El inspector muestra sólo el estado seleccionado; los borradores de otros
+  // estados permanecen en tuning.pending hasta aplicar o descartar el lote.
+  const editorParams=collectEditorParameters();
+  const editorById=new Map(editorParams.map(meta=>[meta.id,meta]));
+  const editorIds=new Set(editorParams.map(meta=>meta.id));
+  const catalog=editorParams.map(meta=>sameMachine?tuning.schema.get(meta.id)||meta:meta);
+  if(sameMachine)for(const meta of tuning.schema.values())
+    if(!editorIds.has(meta.id))catalog.push(meta);
+  const ready=sameMachine&&tuning.schemaComplete()&&tuning.valuesComplete();
+  const editAllowed=!LIVE_STATE.sensors.start&&!LIVE_STATE.running;
+  const canEdit=ready&&liveTuningStopped();
+  const canApply=()=>liveTuningStopped();
+  const recipeMismatch=sameMachine&&tuning.schemaComplete()&&editorParams.length>0&&
+    editorParams.some(meta=>!tuning.schema.has(meta.id));
+  const defaultMismatches=sameMachine?editorParams.filter(meta=>{
+    const compiled=tuning.schema.get(meta.id)?.default;
+    return Number.isInteger(compiled)&&compiled!==meta.value;
+  }).length:0;
+  const groups=new Map(selected?[[selected.stateId,[]]]:[]);
+  const referenced=new Set();
+  const definitionByNumber=new Map((model.parameters||[]).map(p=>[p.id,p]));
+  const catalogByKey=new Map(catalog.map(meta=>[meta.id,meta]));
+  for(const state of selected?[selected]:[]){
+    const items=groups.get(state.stateId);
+    const add=(label,literal,reference,unit,fieldKey,macro='')=>{
+      const definition=definitionByNumber.get(Number(reference));
+      if(definition){
+        const meta=catalogByKey.get(definition.key)||editorById.get(definition.key);
+        if(meta){items.push({...meta,name:label,sourceName:definition.name,
+          timerMacro:macro,literal:false});
+          referenced.add(meta.id);return;}
+      }
+      // Un literal pertenece al estado aunque no tenga overlay editable en MCU.
+      items.push({id:`literal.${state.stateId}.${fieldKey}`,name:label,value:literal,
+        unit,timerMacro:macro,literal:true});
+    };
+    const motor=(params,prefix)=>{
+      add(prefix+' left motor',params?.left_speed_pct??0,params?.leftParameter,'%',prefix+'.left');
+      add(prefix+' right motor',params?.right_speed_pct??0,params?.rightParameter,'%',prefix+'.right');
+    };
+    if(state.type==='base')motor(state.params,'State');
+    for(const [index,edgeItem] of model.edges.filter(item=>item.from===state.id).entries())
+      if(edgeItem.trigger?.type==='timer')add(`State timer ${index+1}`,
+        edgeItem.trigger.duration_ms??0,edgeItem.trigger.timerParameter,'ms',`timer.${index}`,
+        edgeItem.trigger.macro);
+    for(const [stepIndex,step] of (state.sequence||[]).entries()){
+      const prefix=`Step ${stepIndex+1}`;motor(step.params,prefix);
+      for(const [index,edgeItem] of (step.out_transitions||[]).entries())
+        if(edgeItem.trigger?.type==='timer')add(`${prefix} timer ${index+1}`,
+          edgeItem.trigger.duration_ms??0,edgeItem.trigger.timerParameter,'ms',`step.${stepIndex}.timer.${index}`,
+          edgeItem.trigger.macro);
+    }
+  }
+  for(const meta of catalog){
+    if(referenced.has(meta.id))continue;
+    if(selected&&meta.id.startsWith(`state.${selected.stateId}.`))
+      groups.get(selected.stateId).push({...meta,literal:false});
+  }
+  const stateCards=[...groups].map(([stateId,items])=>{
+    const state=model.nodes.find(candidate=>candidate.stateId===stateId);
+    const expanded=!UI_STATE.liveStateClosed.has(stateId);
+    const values=items.map(meta=>{
+      const running=sameMachine?tuning.values.get(meta.id):undefined;
+      const pending=tuning.pending.get(meta.id);
+      const defaultValue=meta.literal?meta.value:
+        editorById.get(meta.id)?.value??meta.default??meta.value;
+      const mcuDefault=tuning.schema.get(meta.id)?.default;
+      const label=meta.name;
+      // Pending es una edición local: puede prepararse desde la receta mientras
+      // START está OFF. Apply sigue requiriendo esquema y valores del MCU.
+      const editable=!meta.literal&&editAllowed&&meta.writable&&
+        (editorById.has(meta.id)||tuning.schema.has(meta.id));
+      return `<div class="live-value-row">
+        <div>${esc(label)}<div class="parameter-id">${meta.timerMacro?`${esc(meta.timerMacro)} · `:''}${meta.literal?'Direct value':esc(meta.sourceName||meta.id)}</div></div>
+        <div><span class="value-caption">Recipe</span>${defaultValue??'—'} ${esc(meta.unit||'')}${Number.isInteger(mcuDefault)&&mcuDefault!==defaultValue?
+          `<div class="parameter-id" title="Compiled firmware default differs from the open recipe">MCU ${mcuDefault}</div>`:''}</div>
+        <div><span class="value-caption">Running</span>${running??'—'} ${esc(meta.unit||'')}</div>
+        <div><span class="value-caption">Pending</span>${meta.literal?'<span class="mini">Edit in State</span>':`<input data-live-param="${esc(meta.id)}" type="number" min="${meta.min}" max="${meta.max}" step="${meta.step}" value="${pending??running??defaultValue??''}" ${editable?'':'disabled'} aria-label="Pending ${esc(meta.id)}">`}
+          ${editable?`<button data-restore-running="${esc(meta.id)}">Running</button>
+            <button data-restore-default="${esc(meta.id)}">Default</button>`:''}</div>
+      </div>`;
+    }).join('');
+    return `<details class="live-state-card" data-live-state="${esc(stateId)}" ${expanded?'open':''}>
+      <summary>${esc(state?.name||stateId)} · ${items.length} fields</summary>
+      ${items.length?`<div class="live-value-row mini"><b>Parameter</b><b>Recipe</b><b>Running</b><b>Pending</b></div>${values}`:
+        '<div class="mini">No recipe parameters referenced.</div>'}</details>`;
+  }).join('');
+
+  inspector.innerHTML=`<div class="mini">LIVE TEST <span class="badge">RAM ONLY</span></div>
+    <p class="mini">${sameMachine?`MCU ${esc(model.name)} · revision ${tuning.revision}`:
+      'Valores compilados. Abre Telemetry Console y conecta esta receta para editar.'}</p>
+    <p class="mini">${esc(tuning.status)} Los valores se pierden al reiniciar el robot.</p>
+    ${defaultMismatches?`<p class="mini telemetry-warning">${defaultMismatches} defaults difieren entre esta receta y el firmware conectado.</p>`:''}
+    ${recipeMismatch?'<p class="mini telemetry-warning">El MCU no expone todos los parámetros de esta receta. Recompila y carga el firmware de la receta abierta.</p>':''}
+    ${sameMachine&&!liveTuningStopped()?'<p class="mini telemetry-warning">Apaga START y espera a que la FSM se detenga para editar. Los cambios aplicados tomarán efecto en el próximo START.</p>':''}
+    ${selected?`<div class="section">State · ${esc(selected.name||selected.stateId)}</div>`:
+      '<p class="mini">Selecciona un estado del grafo para ver sus parámetros.</p>'}
+    <div class="mini">${selected?'Campos del estado':'Sin estado seleccionado'} · ${[...groups.values()].reduce((count,items)=>count+items.length,0)} filas${sameMachine?
+      ` · esquema ${tuning.schemaIndexes.size}/${tuning.schemaExpected} · valores ${tuning.valueIndexes.size}/${tuning.valuesExpected}${ready?' · listo':' · sincronizando'}`:''}</div>
+    <div class="live-state-list">${stateCards}</div>
+    <div id="livePendingCount" class="mini">${tuning.pending.size} pending changes</div>
+    <div class="live-actions"><button id="liveDiscard">Discard Pending</button>
+      <button id="liveApply" class="primary" ${!canApply()||!tuning.pending.size||tuning.inFlight?'disabled':''}>Apply while START OFF</button>
+      <button id="liveRestoreRecipe" ${!canEdit||tuning.inFlight?'disabled':''}>Reset MCU to Recipe</button>
+      <button id="liveRestoreCompiled" ${!canEdit||tuning.inFlight?'disabled':''}>Restore Compiled Defaults</button>
+      <button id="liveUseValues" ${!canEdit||!tuning.values.size?'disabled':''}>Use Running Values in Recipe</button></div>`;
+  inspector.querySelectorAll('[data-live-param]').forEach(input=>{
+    input.oninput=()=>{
+      // Guardar cada valor válido sin reconstruir la tabla mientras se escribe.
+      // Los paquetes MCU pueden llegar entre dos teclas.
+      try{
+        tuning.stage(input.dataset.liveParam,input.value,editorById.get(input.dataset.liveParam));
+        refreshTimerGraphLabels();
+        input.setCustomValidity('');
+        tuning.status='Cambios pendientes; todavía no enviados.';
+        const apply=document.getElementById('liveApply');
+        if(apply)apply.disabled=!canApply()||!tuning.pending.size||!!tuning.inFlight;
+        const count=document.getElementById('livePendingCount');
+        if(count)count.textContent=`${tuning.pending.size} pending changes`;
+      }catch(error){
+        input.setCustomValidity(error.message);tuning.status=error.message;
+        const apply=document.getElementById('liveApply');if(apply)apply.disabled=true;
+      }
+    };
+    // No reconstruir al perder foco: un clic en Apply empieza con blur y
+    // reemplazar el botón aquí puede cancelar ese clic antes de su handler.
+  });
+  inspector.querySelectorAll('[data-live-state]').forEach(details=>details.addEventListener('toggle',()=>{
+    if(details.open)UI_STATE.liveStateClosed.delete(details.dataset.liveState);
+    else UI_STATE.liveStateClosed.add(details.dataset.liveState);
+  }));
+  inspector.querySelectorAll('[data-restore-running]').forEach(button=>button.onclick=()=>{
+    tuning.pending.delete(button.dataset.restoreRunning);
+    tuning.status='Valor Running restaurado en la edición local.';refreshTimerGraphLabels();renderInspector();
+  });
+  inspector.querySelectorAll('[data-restore-default]').forEach(button=>button.onclick=()=>{
+    const meta=tuning.schema.get(button.dataset.restoreDefault);
+    try{tuning.stage(meta.id,meta.default);tuning.status='Default compilado preparado; aún no enviado.';}
+    catch(error){tuning.status=error.message;}
+    refreshTimerGraphLabels();renderInspector();
+  });
+  document.getElementById('liveDiscard').onclick=()=>{
+    pendingApplyRequested=false;tuning.discard();refreshTimerGraphLabels();renderInspector();
+  };
+  document.getElementById('liveApply').onclick=()=>{
+    if(!liveTuningStopped()){tuning.status='Apaga START antes de aplicar cambios.';renderInspector();return;}
+    try{
+      if(!pendingConfirmedByMcu()){
+        pendingApplyRequested=true;tuningSyncAttempts=0;
+        tuning.status='Sincronizando parámetros pendientes con el MCU…';
+        requestTuningSnapshot();scheduleTuningSync();
+      }else sendParameterCommand(tuning.prepareSet());
+    }
+    catch(error){tuning.status=error.message;}
+    renderInspector();
+  };
+  document.getElementById('liveRestoreRecipe').onclick=()=>{
+    if(!liveTuningStopped()){tuning.status='Apaga START antes de restaurar.';renderInspector();return;}
+    try{
+      tuning.discard();
+      for(const meta of editorParams)if(tuning.schema.has(meta.id)&&tuning.values.get(meta.id)!==meta.value)
+        tuning.stage(meta.id,meta.value);
+      if(tuning.pending.size)sendParameterCommand(tuning.prepareSet());
+      else tuning.status='El MCU ya coincide con la receta abierta.';
+    }catch(error){tuning.status=error.message;}
+    renderInspector();
+  };
+  document.getElementById('liveRestoreCompiled').onclick=()=>{
+    if(!liveTuningStopped()){tuning.status='Apaga START antes de restaurar.';renderInspector();return;}
+    try{sendParameterCommand(tuning.prepareReset());}
+    catch(error){tuning.status=error.message;}
+    renderInspector();
+  };
+  document.getElementById('liveUseValues').onclick=()=>{
+    if(!liveTuningStopped()){tuning.status='Apaga START antes de editar la receta.';renderInspector();return;}
+    for(const state of model.nodes)useRunningValuesInRecipe(state,false);
+    render();renderInspector();
+  };
+}
+document.getElementById('liveTestBtn').onclick=()=>{
+  liveTestMode=!liveTestMode;
+  if(!liveTestMode)pendingApplyRequested=false;
+  tuningSyncAttempts=0;
+  if(!liveTestMode&&tuningSyncTimer){clearTimeout(tuningSyncTimer);tuningSyncTimer=null;}
+  document.body.classList.toggle('live-test-mode',liveTestMode);
+  document.getElementById('liveTestBtn').classList.toggle('active',liveTestMode);
+  if(liveTestMode){
+    requestTuningSnapshot();
+    scheduleTuningSync();
+  }
+  refreshTimerGraphLabels();
+  renderInspector();
+};
+
+function renderInspectorCore(){
+  if(liveTestMode){renderLiveInspector();return;}
+  if(!model.selected){
+    inspector.innerHTML='<div class="empty">Select a state or transition.</div>';
+    return;
+  }
+
+  if(model.selected.type==='node'){
+    const n=node(model.selected.id); if(!n)return;
+
+    if(n.type==='base'){
+      const p=n.params||{left_speed_pct:0,right_speed_pct:0};
+      const outCount=model.edges.filter(e=>e.from===n.id).length;
+
+      inspector.innerHTML=`<div class="json-view"><div class="section">State · ${esc(n.stateId)}</div>
+        <div class="json-row"><label class="json-key" for="nName">Name</label><input id="nName" value="${esc(n.name)}"></div>
+        <div class="json-row"><span class="json-key">Type</span><span>Motor state</span></div>
+        <div class="json-row"><label class="json-key" for="nInitial">Initial</label><input id="nInitial" type="checkbox" ${n.initial?'checked':''} style="width:auto"></div>
+        <details open><summary>Motor command · L ${Number(p.left_speed_pct??0)}% · R ${Number(p.right_speed_pct??0)}%</summary>
+          <div class="json-row"><label class="json-key" for="nLeftSpeed">Left %</label><input id="nLeftSpeed" type="number" min="-100" max="100" step="1" value="${Number(p.left_speed_pct??0)}"></div><small id="nLeftError" class="json-error"></small>
+          <div class="json-row"><label class="json-key" for="nRightSpeed">Right %</label><input id="nRightSpeed" type="number" min="-100" max="100" step="1" value="${Number(p.right_speed_pct??0)}"></div><small id="nRightError" class="json-error"></small>
+        </details>
+        <details id="stateOutFold" ${UI_STATE.stateOutOpen.has(n.id)?'open':''}>
+          <summary>Transitions · ${outCount}</summary><div id="outTransitions" class="out-list"></div>
+          <button id="addOutTransition">＋ Add transition</button>
+        </details>
+        <details><summary>Notes</summary><textarea id="nContext">${esc(n.context||'')}</textarea></details>
+        <button id="nDelete" class="danger">Delete state</button></div>`;
+
+      n.params=p;
+
+      document.getElementById('nName').onchange=e=>renameState(n,e.target);
+      document.getElementById('nLeftSpeed').oninput=e=>{
+        const value=Number(e.target.value),valid=e.target.value!==''&&Number.isInteger(value)&&value>=-100&&value<=100;
+        document.getElementById('nLeftError').textContent=valid?'':'Use an integer from -100 to 100.';
+        if(valid){n.params.left_speed_pct=value;render();
+          e.target.closest('details').querySelector('summary').textContent=`Motor command · L ${n.params.left_speed_pct}% · R ${n.params.right_speed_pct}%`;}
+      };
+      document.getElementById('nRightSpeed').oninput=e=>{
+        const value=Number(e.target.value),valid=e.target.value!==''&&Number.isInteger(value)&&value>=-100&&value<=100;
+        document.getElementById('nRightError').textContent=valid?'':'Use an integer from -100 to 100.';
+        if(valid){n.params.right_speed_pct=value;render();
+          e.target.closest('details').querySelector('summary').textContent=`Motor command · L ${n.params.left_speed_pct}% · R ${n.params.right_speed_pct}%`;}
+      };
+      document.getElementById('nContext').oninput=e=>n.context=e.target.value;
+
+      renderOutTransitions(n);
+      rememberFoldState(document.getElementById('stateOutFold'),n.id,UI_STATE.stateOutOpen);
+      document.getElementById('addOutTransition').onclick=()=>addOutTransition(n.id);
+
+    }else{
+      const outCount=model.edges.filter(e=>e.from===n.id).length;
+
+      inspector.innerHTML=`<div class="json-view"><div class="section">State · ${esc(n.stateId)}</div>
+        <div class="json-row"><label class="json-key" for="nName">Name</label><input id="nName" value="${esc(n.name)}"></div>
+        <div class="json-row"><span class="json-key">Type</span><span>SubFSM</span></div>
+        <div class="json-row"><label class="json-key" for="nInitial">Initial</label><input id="nInitial" type="checkbox" ${n.initial?'checked':''} style="width:auto"></div>
+        <details open><summary>SubFSM steps · ${n.sequence.length}</summary>
+          <div id="seqList" class="seq-list"></div><button id="addSeqStep">＋ Add step</button></details>
+        <details id="subfsmOutFold" ${UI_STATE.subfsmOutOpen.has(n.id)?'open':''}>
+          <summary>Transitions · ${outCount}</summary><div id="outTransitions" class="out-list"></div>
+          <button id="addOutTransition">＋ Add transition</button></details>
+        <details><summary>Notes</summary><textarea id="nContext">${esc(n.context||'')}</textarea></details>
+        <button id="nDelete" class="danger">Delete SubFSM</button></div>`;
+
+      document.getElementById('nName').onchange=e=>renameState(n,e.target);
+      document.getElementById('nContext').oninput=e=>n.context=e.target.value;
+
+      renderSequenceEditor(n);
+      renderOutTransitions(n);
+      rememberFoldState(document.getElementById('subfsmOutFold'),n.id,UI_STATE.subfsmOutOpen);
+
+      document.getElementById('addSeqStep').onclick=()=>{
+        const stepId='P'+model.nextStep++;
+        n.sequence.push({
+          id:stepId,
+          state:RecipeCore.freshStep(firmwareProject.api).motion,
+          params:{left_speed_pct:0,right_speed_pct:0},
+          out_transitions:[]
+        });
+        logEvent('subfsm_step_added',{subfsm:n.name,step_id:stepId});
+        renderInspector();
+        render();
+      };
+
+      document.getElementById('addOutTransition').onclick=()=>addOutTransition(n.id);
+    }
+
+    document.getElementById('nInitial').onchange=e=>{
+      model.nodes.forEach(x=>x.initial=false);
+      n.initial=e.target.checked;
+      if(!n.initial&&model.nodes.length)model.nodes[0].initial=true;
+      render();
+      renderInspector();
+    };
+    document.getElementById('nDelete').onclick=deleteSelected;
+    return;
+  }
+
+  // Global graph-edge transition inspector.
+  const e=edge(model.selected.id);if(!e)return;
+  const a=node(e.from);
+  const trg=normalizeTrigger(e);
+  const siblings=model.edges.filter(item=>item.from===e.from);
+  const priority=siblings.findIndex(item=>item.id===e.id);
+
+  inspector.innerHTML=`
+    <div class="section">Condition · priority ${priority+1}</div>
+    <div class="json-actions"><button id="edgeMoveUp" ${priority===0?'disabled':''} title="Move condition up (higher priority)">↑ Higher priority</button>
+      <button id="edgeMoveDown" ${priority===siblings.length-1?'disabled':''} title="Move condition down (lower priority)">↓ Lower priority</button></div>
+
+    <label>Next state</label>
+    <select id="eTo">
+      <option value="" ${!e.to?'selected':''}>Select next state…</option>
+      ${model.nodes.map(n=>`<option value="${n.id}" ${n.id===e.to?'selected':''}>${esc(n.name)}</option>`).join('')}
+    </select>
+
+    <label>Condition type</label>
+    <select id="eType">${transitionTypeOptions(a,trg.type)}</select>
+
+    <div id="edgeCondition"></div>
+
+    <label>Optional action / note</label>
+    <textarea id="eAction">${esc(e.action||'')}</textarea>
+
+    <button id="eDelete" class="danger" style="width:100%;margin-top:14px">Delete transition</button>
+  `;
+
+  const conditionRoot=document.getElementById('edgeCondition');
+  document.getElementById('edgeMoveUp').onclick=()=>moveOutTransition(e.id,-1);
+  document.getElementById('edgeMoveDown').onclick=()=>moveOutTransition(e.id,1);
+
+  if(trg.type==='timer'){
+    if(!trg.macro)trg.macro=uniqueTimerMacroForState(a,e.id);
+    conditionRoot.innerHTML=`
+      <label>Timer macro</label>
+      <input id="eTimerMacro" value="${esc(trg.macro)}">
+      <label>Time (ms)</label>
+      <input id="eTimerMs" type="number" min="0" step="10" value="${Number(trg.duration_ms)||0}">`;
+
+    document.getElementById('eTimerMacro').onchange=x=>{
+      const macro=normalizeTimerMacroName(x.target.value,node(e.from),e.id);
+      setEdgeTrigger(e,{type:'timer',macro,duration_ms:Number(trg.duration_ms)||0,
+        timerParameter:trg.timerParameter||0});
+      x.target.value=macro;
+      render();
+    };
+    document.getElementById('eTimerMs').oninput=x=>{
+      setEdgeTrigger(e,{
+        type:'timer',
+        macro:trg.macro||uniqueTimerMacroForState(node(e.from),e.id),
+        duration_ms:Math.max(0,Number(x.target.value)||0),timerParameter:trg.timerParameter||0
+      });
+      render();
+    };
+  }else if(trg.type==='completion'){
+    conditionRoot.innerHTML='<div class="hint" style="margin-top:8px;padding-top:8px">Transition occurs when the SubFSM sequence completes.</div>';
+  }else{
+    renderInlineMacroBuilder(e,conditionRoot);
+  }
+
+  document.getElementById('eType').onchange=x=>{
+    const type=x.target.value;
+    if(type==='timer')setEdgeTrigger(e,{
+      type:'timer',
+      macro:uniqueTimerMacroForState(node(e.from),e.id),
+      duration_ms:1000
+    });
+    else if(type==='completion')setEdgeTrigger(e,{type:'completion'});
+    else setEdgeTrigger(e,{type:'macro',terms:[TRANSITION_MACROS[0]?.id||'CONDITION'],operators:[]});
+    render();
+    renderInspector();
+  };
+
+  document.getElementById('eTo').onchange=x=>{
+    e.to=x.target.value;
+    logEvent('transition_next_state_changed',{transition:e.id,next_state:node(e.to)?.name});
+    render();
+  };
+  document.getElementById('eAction').oninput=x=>e.action=x.target.value;
+  document.getElementById('eDelete').onclick=deleteSelected;
+}
+
+// Controles de parámetros de receta separados del inspector visual original.
+function renderInspector(){
+  renderInspectorCore();
+  if(liveTestMode||!firmwareProject.api)return;
+  if(model.selected?.type==='node'){
+    inspector.insertAdjacentHTML('afterbegin',`<div class="json-actions">
+      <button id="copyStateConfig" title="Copy this state's behavior">Copy Config</button>
+      <button id="pasteStateConfig" title="Replace this state's behavior; preserve name and position" ${!stateConfigClipboard?'disabled':''}>Paste Config</button>
+      <button id="undoStatePaste" ${!pasteUndo?'disabled':''}>Undo Paste</button>
+    </div>`);
+    document.getElementById('copyStateConfig').onclick=()=>{copySelectedStateConfig();renderInspector();};
+    document.getElementById('pasteStateConfig').onclick=pasteSelectedStateConfig;
+    document.getElementById('undoStatePaste').onclick=undoStateConfigPaste;
+  }
+  const parameters=model.parameters||[];
+  const parameterRoot=document.getElementById('recipeParameterEditor');
+  const definitions=`<div class="mini">${parameters.length} tunable values declared by this recipe</div>
+    ${parameters.map(p=>`<div class="step-transition-card" data-parameter="${p.id}">
+      <div class="mini">${esc(p.key)} · ID ${p.id}</div>
+      <label>Name</label><input data-param-field="name" data-param-id="${p.id}" value="${esc(p.name)}">
+      <div class="compact-grid"><div><label>Recipe default</label><input type="number" data-param-field="default" data-param-id="${p.id}" value="${p.default}"></div>
+      <div><label>Unit</label><select data-param-field="unit" data-param-id="${p.id}">
+        <option value="Percent" ${p.unit==='Percent'?'selected':''}>%</option>
+        <option value="Milliseconds" ${p.unit==='Milliseconds'?'selected':''}>ms</option></select></div></div>
+      <div class="compact-grid"><div><label>Min</label><input type="number" data-param-field="min" data-param-id="${p.id}" value="${p.min}"></div>
+      <div><label>Max</label><input type="number" data-param-field="max" data-param-id="${p.id}" value="${p.max}"></div>
+      <div><label>Step</label><input type="number" data-param-field="step" data-param-id="${p.id}" value="${p.step}"></div></div>
+      <label>Apply</label><select data-param-field="policy" data-param-id="${p.id}">
+        ${['Immediate','NextStateEntry','NextStepEntry','NextMachineStart','StoppedOnly'].map(x=>
+          `<option value="${x}" ${p.policy===x?'selected':''}>${x}</option>`).join('')}</select>
+      <label><input type="checkbox" data-param-field="writable" data-param-id="${p.id}" ${p.writable!==false?'checked':''}> Runtime writable</label>
+      <button data-delete-param="${p.id}" class="danger">Delete</button></div>`).join('')}
+    <button id="addRecipeParameter">＋ Add recipe parameter</button>`;
+  parameterRoot.innerHTML=definitions;
+  document.getElementById('addRecipeParameter').onclick=()=>{
+    const key=prompt('Stable protocol key (lowercase, e.g. turn_duration):');
+    if(key===null)return;
+    if(!/^[a-z][a-z0-9_]*$/.test(key)||parameters.some(p=>p.key===key))
+      {alert('La clave debe ser única y usar letras minúsculas, números o _.');return;}
+    const id=Math.max(0,...parameters.map(p=>p.id))+1;
+    parameters.push({id,key,name:key.replaceAll('_',' '),unit:'Milliseconds',default:0,
+      min:0,max:60000,step:1,policy:'NextStateEntry',writable:true});
+    renderInspector();renderMacroLibrary();
+  };
+  parameterRoot.querySelectorAll('[data-param-field]').forEach(input=>input.onchange=()=>{
+    const p=parameters.find(item=>item.id===Number(input.dataset.paramId));
+    if(!p)return;
+    p[input.dataset.paramField]=input.dataset.paramField==='writable'?input.checked:
+      ['default','min','max','step'].includes(input.dataset.paramField)?Number(input.value):input.value;
+    publishTelemetryCatalog();renderMacroLibrary();
+  });
+  parameterRoot.querySelectorAll('[data-delete-param]').forEach(button=>button.onclick=()=>{
+    const id=Number(button.dataset.deleteParam);
+    if(recipeParameterUsages(id).length){alert('Este parámetro está referenciado. Cambia esos campos a Literal primero.');return;}
+    model.parameters=parameters.filter(p=>p.id!==id);renderInspector();renderMacroLibrary();
+  });
+  const selected=model.selected?.type==='node'?node(model.selected.id):null;
+  const fields=[];
+  if(selected){
+    if(selected.type==='base'){
+      fields.push({label:'Left motor',item:selected.params,field:'leftParameter',unit:'Percent',entryPolicy:'NextStateEntry',anchor:'#nLeftSpeed'});
+      fields.push({label:'Right motor',item:selected.params,field:'rightParameter',unit:'Percent',entryPolicy:'NextStateEntry',anchor:'#nRightSpeed'});
+    }
+    for(const edgeItem of model.edges.filter(edgeItem=>edgeItem.from===selected.id))
+      if(edgeItem.trigger?.type==='timer')fields.push({label:`State timer ${edgeItem.id}`,
+        item:edgeItem.trigger,field:'timerParameter',unit:'Milliseconds',entryPolicy:'NextStateEntry',anchor:`.outTimer[data-edge="${edgeItem.id}"]`});
+    for(const [i,step] of (selected.sequence||[]).entries()){
+      fields.push({label:`Step ${i} left motor`,item:step.params,field:'leftParameter',unit:'Percent',entryPolicy:'NextStepEntry',anchor:`.seqLeftSpeed[data-i="${i}"]`});
+      fields.push({label:`Step ${i} right motor`,item:step.params,field:'rightParameter',unit:'Percent',entryPolicy:'NextStepEntry',anchor:`.seqRightSpeed[data-i="${i}"]`});
+      for(const edge of step.out_transitions||[])if(edge.trigger?.type==='timer')
+        fields.push({label:`Step ${i} timer`,item:edge.trigger,field:'timerParameter',unit:'Milliseconds',entryPolicy:'NextStepEntry',anchor:`.stepTimerMs[data-id="${edge.id}"]`});
+    }
+  }
+  if(model.selected?.type==='edge'){
+    const edgeItem=edge(model.selected.id);
+    if(edgeItem?.trigger?.type==='timer')fields.push({label:'State timer',item:edgeItem.trigger,
+      field:'timerParameter',unit:'Milliseconds',entryPolicy:'NextStateEntry',anchor:'#eTimerMs'});
+  }
+  if(fields.length){
+    // La fuente del valor vive junto al campo que gobierna, no en otra tabla.
+    fields.forEach((f,i)=>{
+      const input=inspector.querySelector(f.anchor);if(!input)return;
+      const compatible=parameters.filter(p=>p.unit===f.unit&&
+        [f.entryPolicy,'NextMachineStart','StoppedOnly'].includes(p.policy));
+      const reference=Number(f.item?.[f.field]||0);
+      const active=parameters.find(p=>p.id===reference);
+      const live=active?tuning.schema.get(active.key):null;
+      const pendingValue=active?tuning.pending.get(active.key):undefined;
+      const runningValue=active&&tuning.machine===model.name&&LIVE_STATE.connected?
+        tuning.values.get(active.key):undefined;
+      input.insertAdjacentHTML('afterend',`<div class="field-source">
+        <select data-value-source="${i}" aria-label="Value source for ${esc(f.label)}">
+          <option value="0" ${!reference?'selected':''}>Direct value</option>
+          ${compatible.map(p=>`<option value="${p.id}" ${reference===p.id?'selected':''}>${esc(p.name)} · ${esc(p.key)}</option>`).join('')}
+        </select>${active?`<small>${esc(active.key)} · recipe ${active.default} ${active.unit==='Percent'?'%':'ms'}${live?` · running ${tuning.values.get(active.key)??'—'} · pending ${tuning.pending.get(active.key)??'—'}`:''}</small>`:''}
+      </div>`);
+      if(reference){
+        input.disabled=true;
+        // Mostrar el valor efectivo de Live Test en el campo principal sin
+        // cambiar el literal ni el default que se exportan en la receta.
+        const shown=Number.isInteger(pendingValue)?pendingValue:runningValue;
+        if(Number.isInteger(shown))input.value=String(shown);
+        input.title=Number.isInteger(pendingValue)?'Pending en Live Test':
+          Number.isInteger(runningValue)?'Running MCU en Live Test':'Recipe default';
+      }
+    });
+    inspector.querySelectorAll('[data-value-source]').forEach(select=>select.onchange=()=>{
+      const f=fields[Number(select.dataset.valueSource)];f.item[f.field]=Number(select.value);
+      renderInspector();publishTelemetryCatalog();
+    });
+  }
+  renderMacroLibrary();
+}
+function recipeParameterUsages(id){
+  const uses=[];
+  for(const state of model.nodes){
+    const motor=(params,label)=>{if(Number(params?.leftParameter)===id)uses.push(label+' left');
+      if(Number(params?.rightParameter)===id)uses.push(label+' right');};
+    motor(state.params,state.stateId);
+    for(const edge of model.edges.filter(edge=>edge.from===state.id))
+      if(Number(edge.trigger?.timerParameter)===id)uses.push(state.stateId+' timer');
+    for(const [index,step] of (state.sequence||[]).entries()){
+      motor(step.params,state.stateId+' step '+index);
+      for(const edge of step.out_transitions||[])
+        if(Number(edge.trigger?.timerParameter)===id)uses.push(state.stateId+' step '+index+' timer');
+    }
+  }
+  return uses;
+}
+
+function stepTargetLabel(n,value){
+  if(value==='COMPLETE')return 'Complete SubFSM';
+  const step=(n.sequence||[]).find(s=>s.id===value);
+  if(!step)return 'Select target…';
+  const idx=n.sequence.indexOf(step)+1;
+  return step.name||`Step ${idx}`;
+}
+
+function defaultStepTarget(n,stepIndex){
+  return n.sequence[stepIndex+1]?.id || 'COMPLETE';
+}
+
+function addStepOutTransition(n,stepIndex){
+  const step=n.sequence[stepIndex];
+  if(!step)return;
+  step.out_transitions=step.out_transitions||[];
+  const id='ST'+model.nextStepTransition++;
+  step.out_transitions.push({
+    id,
+    trigger:{
+      type:'timer',
+      macro:uniqueStepTimerMacro(n,step,id),
+      duration_ms:500
+    },
+    next_step:defaultStepTarget(n,stepIndex)
+  });
+  logEvent('subfsm_step_transition_added',{
+    subfsm:n.name,
+    step_id:step.id,
+    transition:id,
+    next_step:defaultStepTarget(n,stepIndex)
+  });
+  renderInspector();
+}
+
+function renderStepMacroBuilder(n,step,st,root){
+  const trigger=st.trigger;
+  if(!trigger.terms?.length)trigger.terms=[TRANSITION_MACROS[0]?.id||'CONDITION'];
+  trigger.operators=trigger.operators||[];
+
+  root.innerHTML=trigger.terms.map((term,i)=>`
+    <div style="display:grid;grid-template-columns:${i>0?'68px ':''}1fr 30px;gap:5px;margin-top:5px">
+      ${i>0?`<select class="stepOp" data-i="${i-1}">
+        <option value="AND" ${(trigger.operators[i-1]||'AND')==='AND'?'selected':''}>AND</option>
+        <option value="OR" ${(trigger.operators[i-1]||'AND')==='OR'?'selected':''}>OR</option>
+      </select>`:''}
+      <select class="stepMacro" data-i="${i}">
+        ${TRANSITION_MACROS.map(m=>`<option value="${m.id}" ${m.id===term?'selected':''}>${esc(m.id)}</option>`).join('')}
+      </select>
+      <button class="stepTermDel danger" data-i="${i}">×</button>
+    </div>
+  `).join('') + `<button class="stepAddTerm" style="width:100%;margin-top:6px">＋ condition</button>`;
+
+  root.querySelectorAll('.stepMacro').forEach(el=>el.onchange=x=>{
+    trigger.terms[+x.target.dataset.i]=x.target.value;
+    render();renderMacroLibrary();
+  });
+  root.querySelectorAll('.stepOp').forEach(el=>el.onchange=x=>{
+    trigger.operators[+x.target.dataset.i]=x.target.value;
+    render();
+  });
+  root.querySelectorAll('.stepTermDel').forEach(el=>el.onclick=x=>{
+    const i=+x.target.dataset.i;
+    trigger.terms.splice(i,1);
+    if(i===0)trigger.operators.splice(0,1);
+    else trigger.operators.splice(i-1,1);
+    if(!trigger.terms.length)trigger.terms=[TRANSITION_MACROS[0]?.id||'CONDITION'];
+    renderInspector();renderMacroLibrary();
+  });
+  root.querySelector('.stepAddTerm').onclick=()=>{
+    trigger.terms.push(TRANSITION_MACROS[0]?.id||'CONDITION');
+    if(trigger.terms.length>1)trigger.operators.push('AND');
+    renderInspector();renderMacroLibrary();
+  };
+}
+
+function renderSequenceEditor(n){
+  const root=document.getElementById('seqList'); if(!root)return;
+
+  root.innerHTML=n.sequence.map((step,i)=>{
+    const p=step.params;
+    const count=(step.out_transitions||[]).length;
+    return `
+      <details class="step-card" data-step="${step.id}" open>
+        <summary>Step ${i+1} · ${count} conditions</summary>
+        <div class="step-top">
+          <span class="mini">Motor command and exit conditions</span>
+          <span class="json-actions"><button data-i="${i}" data-dir="-1" class="seqMove" title="Move step up">↑</button><button data-i="${i}" data-dir="1" class="seqMove" title="Move step down">↓</button><button data-i="${i}" class="seqDel danger">×</button></span>
+        </div>
+
+        <div class="step-motors">
+          <div>
+            <div class="mini">Left %</div>
+            <input data-i="${i}" class="seqLeftSpeed" type="number" min="-100" max="100"
+                   value="${Number(p.left_speed_pct ?? 100)}" style="margin-top:4px">
+          </div>
+          <div>
+            <div class="mini">Right %</div>
+            <input data-i="${i}" class="seqRightSpeed" type="number" min="-100" max="100"
+                   value="${Number(p.right_speed_pct ?? 100)}" style="margin-top:4px">
+          </div>
+        </div>
+
+        <details class="transition-fold seqTransitions" data-i="${i}" data-step="${step.id}" ${UI_STATE.stepOutOpen.has(step.id)?'open':''}>
+          <summary>Out transitions (${count})</summary>
+          <div class="stepTransitionList" data-i="${i}"></div>
+          <button class="addStepTransition" data-i="${i}" style="width:100%;margin-top:7px">＋ Add step out transition</button>
+        </details>
+      </details>`;
+  }).join('');
+
+  root.querySelectorAll('.seqTransitions').forEach(details=>{
+    rememberFoldState(details,details.dataset.step,UI_STATE.stepOutOpen);
+  });
+
+  // Los comandos firmados definen movimiento; MotionId es metadata de receta.
+  root.querySelectorAll('.seqLeftSpeed').forEach(el=>el.oninput=e=>{
+    n.sequence[+e.target.dataset.i].params.left_speed_pct=Math.max(-100,Math.min(100,Number(e.target.value)||0));
+  });
+  root.querySelectorAll('.seqRightSpeed').forEach(el=>el.oninput=e=>{
+    n.sequence[+e.target.dataset.i].params.right_speed_pct=Math.max(-100,Math.min(100,Number(e.target.value)||0));
+  });
+
+  root.querySelectorAll('.seqDel').forEach(el=>el.onclick=e=>{
+    const i=+e.target.dataset.i;
+    const deleted=n.sequence[i];
+    n.sequence.splice(i,1);
+    UI_STATE.stepOutOpen.delete(deleted.id);
+
+    // Un destino eliminado queda inválido; no inventar una finalización.
+    (n.sequence||[]).forEach(step=>{
+      (step.out_transitions||[]).forEach(st=>{
+        if(st.next_step===deleted.id)st.next_step='MISSING_STEP';
+      });
+    });
+
+    logEvent('subfsm_step_deleted',{subfsm:n.name,step_id:deleted.id});
+    renderInspector();
+    render();
+  });
+  root.querySelectorAll('.seqMove').forEach(button=>button.onclick=()=>{
+    const from=Number(button.dataset.i),to=from+Number(button.dataset.dir);
+    if(to<0||to>=n.sequence.length)return;
+    // Destinos internos usan IDs estables, así que el movimiento no los reescribe.
+    [n.sequence[from],n.sequence[to]]=[n.sequence[to],n.sequence[from]];
+    renderInspector();render();
+  });
+
+  root.querySelectorAll('.addStepTransition').forEach(btn=>btn.onclick=()=>{
+    addStepOutTransition(n,+btn.dataset.i);
+  });
+
+  // Render each step's internal transitions.
+  n.sequence.forEach((step,i)=>{
+    const list=root.querySelector(`.stepTransitionList[data-i="${i}"]`);
+    if(!list)return;
+
+    const transitions=step.out_transitions||[];
+    if(!transitions.length){
+      list.innerHTML='<div class="empty" style="margin-top:7px">No step out transitions.</div>';
+      return;
+    }
+
+    list.innerHTML=transitions.map((st,index)=>`
+      <div class="step-transition-card" data-st="${st.id}">
+        <div style="display:grid;grid-template-columns:1fr auto;gap:6px;align-items:center">
+          <div class="json-actions"><span class="mini">Priority ${index+1}</span>
+            <button class="stepTransitionMove" data-id="${st.id}" data-dir="-1" title="Move condition up (higher priority)" ${index===0?'disabled':''}>↑</button>
+            <button class="stepTransitionMove" data-id="${st.id}" data-dir="1" title="Move condition down (lower priority)" ${index===transitions.length-1?'disabled':''}>↓</button></div>
+          <button class="stepTransitionDel danger" data-id="${st.id}">×</button>
+        </div>
+
+        <div class="step-out-row">
+          <label>Next</label>
+          <select class="stepNext" data-id="${st.id}">
+            <option value="COMPLETE" ${st.next_step==='COMPLETE'?'selected':''}>Complete SubFSM</option>
+            ${n.sequence.map((target,j)=>`
+              <option value="${target.id}" ${target.id===st.next_step?'selected':''}>
+                ${esc(target.name||`Step ${j+1}`)}
+              </option>`).join('')}
+          </select>
+        </div>
+
+        <div class="step-out-row">
+          <label>Condition</label>
+          <select class="stepType" data-id="${st.id}">
+            <option value="timer" ${st.trigger?.type==='timer'?'selected':''}>Timer</option>
+            <option value="macro" ${st.trigger?.type==='macro'?'selected':''}>Macro / sensor</option>
+          </select>
+        </div>
+
+        <div class="stepDynamic" data-id="${st.id}"></div>
+      </div>
+    `).join('');
+
+    transitions.forEach(st=>{
+      const dyn=list.querySelector(`.stepDynamic[data-id="${st.id}"]`);
+
+      if(st.trigger?.type==='timer'){
+        if(!st.trigger.macro)st.trigger.macro=uniqueStepTimerMacro(n,step,st.id);
+        dyn.innerHTML=`
+          <div class="step-out-row">
+            <label>Timer macro</label>
+            <input class="stepTimerMacro" data-id="${st.id}" value="${esc(st.trigger.macro)}">
+          </div>
+          <div class="step-out-row">
+            <label>Time (ms)</label>
+            <input class="stepTimerMs" data-id="${st.id}" type="number" min="0" step="10"
+                   value="${Number(st.trigger.duration_ms)||0}">
+          </div>`;
+
+        dyn.querySelector('.stepTimerMacro').onchange=x=>{
+          st.trigger.macro=normalizeTimerMacroName(x.target.value,n,st.id);
+          x.target.value=st.trigger.macro;
+          render();
+        };
+        dyn.querySelector('.stepTimerMs').oninput=x=>{
+          st.trigger.duration_ms=Math.max(0,Number(x.target.value)||0);
+          render();
+        };
+      }else{
+        renderStepMacroBuilder(n,step,st,dyn);
+      }
+    });
+
+    list.querySelectorAll('.stepNext').forEach(el=>el.onchange=e=>{
+      const st=transitions.find(x=>x.id===e.target.dataset.id);
+      if(st)st.next_step=e.target.value;
+    });
+
+    list.querySelectorAll('.stepType').forEach(el=>el.onchange=e=>{
+      const st=transitions.find(x=>x.id===e.target.dataset.id);
+      if(!st)return;
+      if(e.target.value==='timer'){
+        st.trigger={
+          type:'timer',
+          macro:uniqueStepTimerMacro(n,step,st.id),
+          duration_ms:500
+        };
+      }else{
+        st.trigger={
+          type:'macro',
+          terms:[TRANSITION_MACROS[0]?.id||'CONDITION'],
+          operators:[]
+        };
+      }
+      renderInspector();
+    });
+
+    list.querySelectorAll('.stepTransitionDel').forEach(el=>el.onclick=e=>{
+      step.out_transitions=transitions.filter(x=>x.id!==e.target.dataset.id);
+      renderInspector();
+    });
+    list.querySelectorAll('.stepTransitionMove').forEach(button=>button.onclick=()=>{
+      const from=transitions.findIndex(item=>item.id===button.dataset.id);
+      const to=from+Number(button.dataset.dir);
+      if(from<0||to<0||to>=transitions.length)return;
+      [transitions[from],transitions[to]]=[transitions[to],transitions[from]];
+      // El orden del array es la prioridad que exporta la receta.
+      renderInspector();render();
+    });
+  });
+}
+
+function renderConditionBuilder(e){
+  const root=document.getElementById('conditionBuilder'); if(!root)return;
+  e.condition=e.condition||{terms:[],operators:[]};
+  if(!e.condition.terms.length)e.condition.terms=[TRANSITION_MACROS[0]?.id||'CONDITION'];
+
+  root.innerHTML=e.condition.terms.map((term,i)=>`
+    <div style="display:grid;grid-template-columns:${i>0?'74px ':''}1fr 34px;gap:6px;align-items:center;margin-top:6px">
+      ${i>0?`<select class="condOp" data-i="${i-1}">
+        <option value="AND" ${(e.condition.operators[i-1]||'AND')==='AND'?'selected':''}>AND</option>
+        <option value="OR" ${(e.condition.operators[i-1]||'AND')==='OR'?'selected':''}>OR</option>
+      </select>`:''}
+      <select class="condMacro" data-i="${i}">
+        ${TRANSITION_MACROS.map(m=>`<option value="${m.id}" ${m.id===term?'selected':''}>${esc(m.id)}</option>`).join('')}
+      </select>
+      <button class="condDel danger" data-i="${i}">×</button>
+    </div>
+  `).join('');
+
+  root.querySelectorAll('.condMacro').forEach(el=>el.onchange=x=>{
+    e.condition.terms[+x.target.dataset.i]=x.target.value;render();
+  });
+  root.querySelectorAll('.condOp').forEach(el=>el.onchange=x=>{
+    e.condition.operators[+x.target.dataset.i]=x.target.value;render();
+  });
+  root.querySelectorAll('.condDel').forEach(el=>el.onclick=x=>{
+    const i=+x.target.dataset.i;
+    e.condition.terms.splice(i,1);
+    if(i===0)e.condition.operators.splice(0,1);
+    else e.condition.operators.splice(i-1,1);
+    if(!e.condition.terms.length)e.condition.terms=[TRANSITION_MACROS[0]?.id||'CONDITION'];
+    renderInspector();render();
+  });
+}
+
+
+// El modelo conserva la identidad que usa la sesión conectada. Export Header
+// crea un snapshot con los valores Live Test y StateIds legibles, sin mutarlo.
+function graphRecipe() {
+  return RecipeBackend.fromGraph(firmwareProject.api, model, recipeIdentity);
+}
+
+function headerExportGraph(){
+  const graph=structuredClone(model);
+  const applied=new Map();
+  for(const parameter of graph.parameters||[]){
+    const pending=tuning.pending.get(parameter.key);
+    const running=tuning.machine===model.name&&LIVE_STATE.connected?
+      tuning.values.get(parameter.key):undefined;
+    const value=Number.isInteger(pending)?pending:running;
+    if(Number.isInteger(value)){
+      parameter.default=value;
+      applied.set(parameter.id,value);
+    }
+  }
+  const motors=params=>{
+    if(applied.has(Number(params?.leftParameter)))
+      params.left_speed_pct=applied.get(Number(params.leftParameter));
+    if(applied.has(Number(params?.rightParameter)))
+      params.right_speed_pct=applied.get(Number(params.rightParameter));
+  };
+  const timer=trigger=>{
+    if(trigger?.type==='timer'&&applied.has(Number(trigger.timerParameter)))
+      trigger.duration_ms=applied.get(Number(trigger.timerParameter));
+  };
+  for(const state of graph.nodes){
+    motors(state.params);
+    for(const step of state.sequence||[]){
+      motors(step.params);
+      for(const edge of step.out_transitions||[])timer(edge.trigger);
+    }
+  }
+  for(const edge of graph.edges)timer(edge.trigger);
+  return graph;
+}
+
+function exportCppHeader() {
+  const result=RecipeBackend.exportWithStateNames(firmwareProject,headerExportGraph(),recipeIdentity);
+  return RecipeCore.emit(result.api,result.recipe);
+}
+
+function exportData() {
+  graphRecipe();
+  return {format:'mbaretech-current-graph', version:1, identity:recipeIdentity, instances:firmwareProject.instanceDefinitions,
+    graph:{name:model.name, parameters:model.parameters||[], nodes:model.nodes, edges:model.edges}};
+}
+
+function exportDsl() {
+  const recipe = graphRecipe();
+  const condition = edge => edge.type === 'TIMER' ? 'TIMER ' + edge.timer + ' ms' :
+    edge.type === 'COMPLETION' ? 'COMPLETION' : edge.terms.map((term,i)=>(i ? edge.operators[i-1]+' ' : '')+term).join(' ');
+  const lines = ['RECETA ' + recipe.name, 'INICIAL ' + recipe.initialState];
+  for (const state of recipe.states) {
+    lines.push('', 'ESTADO ' + state.id + ' ' + state.kind + ' ' + state.motion,
+      '  MOTORES ' + state.left + ' ' + state.right);
+    state.steps.forEach((step,i)=>{
+      lines.push('  PASO ' + i + ' ' + step.motion + ' MOTORES ' + step.left + ' ' + step.right);
+      for (const edge of step.transitions) lines.push('    '+condition(edge)+' -> '+(edge.target===-1?'END':edge.target));
+    });
+    for (const edge of state.transitions) lines.push('  '+condition(edge)+' -> '+edge.target);
+  }
+  return lines.join('\n')+'\n';
+}
+
+function loadRecipe(recipe) {
+  const graph = RecipeBackend.toGraph(firmwareProject.api, recipe);
+  // Una receta recargada invalida ediciones pendientes basadas en otra tabla.
+  tuning.pending.clear();tuning.inFlight=null;
+  if(liveTestMode)tuning.status='Receta recargada; verifica los valores del MCU antes de aplicar.';
+  Object.assign(model, graph, {selected:null, mode:'select', dragging:null, transitionSource:null});
+  recipeIdentity = {file:recipe.file, namespace:recipe.namespace, macro:recipe.macro};
+  for (const set of [UI_STATE.stateOutOpen, UI_STATE.subfsmOutOpen, UI_STATE.stepOutOpen]) set.clear();
+  renderStateLibrary(); renderMacroLibrary(); render(); renderInspector(); centerGraph();
+  validateTelemetryRecipe();
+  if(liveTestMode&&LIVE_STATE.connected&&tuning.machine===model.name){
+    requestTuningSnapshot();scheduleTuningSync();
+  }
+  returnToSelect('Receta cargada: ' + recipe.name);
+}
+
+function refreshCatalogs() {
+  const api = firmwareProject.api;
+  TRANSITION_MACROS = api.conditions.map(id => ({id, label:api.metadata[id]?.description || id}));
+  renderStateLibrary(); renderMacroLibrary();
+}
+
+function chooseRecipe() {
+  const recipes = firmwareProject.recipes;
+  if (!recipes.length) { alert('No hay recetas compatibles. Usa New para crear una.'); return; }
+  const active = firmwareProject.files.get(RecipeBackend.paths.config).match(/^\s*#define\s+(FSM_ACTIVE_RECIPE_\w+)/m)?.[1];
+  const defaultRecipe = recipes.find(recipe => recipe.macro === active) || recipes[0];
+  const name = prompt('Selecciona una receta: '+recipes.map(recipe=>recipe.name).join(', '), defaultRecipe.name);
+  if (name === null) return;
+  const recipe = recipes.find(recipe => recipe.name === name);
+  if (!recipe) throw new Error('No se encontró esa receta.');
+  loadRecipe(recipe);
+}
+
+function projectLoaded() {
+  model.nodes=[]; model.edges=[]; model.parameters=[]; model.selected=null; recipeIdentity=null;
+  refreshCatalogs();
+  render(); renderInspector();
+  if (firmwareProject.errors.length) logEvent('recetas_omitidas',{archivos:firmwareProject.errors});
+  if (firmwareProject.unavailable.length) logEvent('recetas_no_disponibles',{archivos:firmwareProject.unavailable});
+  chooseRecipe();
+  if (firmwareProject.errors.length || firmwareProject.unavailable.length)
+    status('Proyecto cargado. '+firmwareProject.errors.length+' incompatibles, '+firmwareProject.unavailable.length+' no disponibles; detalles en Debug log.');
+}
+
+function guarded(action) {
+  return async (...args) => {
+    try { return await action(...args); }
+    catch (error) { status(error.message); alert(error.message); }
+  };
+}
+
+// API de archivos y configuración para la interfaz existente, sin paneles nuevos.
+window.FSMFirmware = {
+  async open(directory) { await firmwareProject.open(directory); projectLoaded(); },
+  async reload() { await firmwareProject.openFromUrl(window.location.href); projectLoaded(); },
+  recipes() { return firmwareProject.recipes.map(recipe=>recipe.name); },
+  diagnostics() { return [...firmwareProject.errors, ...firmwareProject.unavailable]; },
+  select(name) {
+    const recipe=firmwareProject.recipes.find(item=>item.name===name);
+    if (!recipe) throw new Error('Receta desconocida: '+name);
+    loadRecipe(recipe);
+  },
+  configure(changes) { firmwareProject.configure(changes); },
+  setMotion(id, motion) {
+    if (!firmwareProject.api?.enums.MotionId.includes(motion)) throw new Error('MotionId desconocido.');
+    const item=node(id); if (!item) throw new Error('Nodo desconocido.');
+    item.state=motion;
+  },
+  setCompletionHold(id, enabled) {
+    const item=node(id);
+    if (!item || item.type!=='subfsm' || typeof enabled!=='boolean') throw new Error('Política de SubFSM inválida.');
+    item.allowHoldOnCompletion=enabled;
+  },
+  previewSave() {
+    const changes=firmwareProject.preview(graphRecipe(),model);
+    showModal('Cambios de firmware', changes.map(change=>change.path+'\nANTES:\n'+(change.before??'(nuevo)')+'\nDESPUÉS:\n'+change.after).join('\n\n'), 'cambios-firmware.txt');
+    return changes;
+  },
+  downloadReviewed() {
+    if (!firmwareProject.pending) throw new Error('Primero revisa previewSave().');
+    for (const change of firmwareProject.pending) downloadTextFile(change.path.split('/').pop(),change.after);
+  },
+  async saveReviewed() {
+    if (!confirm('¿Guardar los archivos mostrados en la vista previa?')) return [];
+    return firmwareProject.saveReviewed();
+  }
+};
+
+let exportCompanions = [];
+function showModal(title,text,filename,companions=[]){
+  exportCompanions = companions;
+  logEvent('export_preview_opened',{title,filename});
+  document.getElementById('modalTitle').textContent=title;
+  document.getElementById('modalText').value=text;
+  document.getElementById('downloadBtn').dataset.filename=filename;
+  document.getElementById('modal').classList.add('show');
+}
+
+
+let zoomLevel=1;
+let graphPan=null;
+
+function getViewBox(){
+  const raw=svg.getAttribute('viewBox').trim().split(/\s+/).map(Number);
+  return {x:raw[0],y:raw[1],w:raw[2],h:raw[3]};
+}
+
+function setViewBox(v){
+  svg.setAttribute('viewBox',`${v.x} ${v.y} ${v.w} ${v.h}`);
+}
+
+function applyZoomAt(factor,focusX=null,focusY=null){
+  const v=getViewBox();
+
+  const targetZoom=Math.max(0.25,Math.min(4,zoomLevel*factor));
+  const effectiveFactor=targetZoom/zoomLevel;
+  if(Math.abs(effectiveFactor-1)<0.0001)return;
+
+  const fx=(focusX===null)?(v.x+v.w/2):focusX;
+  const fy=(focusY===null)?(v.y+v.h/2):focusY;
+
+  const nw=v.w/effectiveFactor;
+  const nh=v.h/effectiveFactor;
+
+  const rx=(fx-v.x)/v.w;
+  const ry=(fy-v.y)/v.h;
+
+  zoomLevel=targetZoom;
+  setViewBox({
+    x:fx-rx*nw,
+    y:fy-ry*nh,
+    w:nw,
+    h:nh
+  });
+
+  document.getElementById('zoomResetBtn').textContent=`${Math.round(zoomLevel*100)}%`;
+  logEvent('graph_zoom',{
+    zoom_percent:Math.round(zoomLevel*100),
+    focus_x:Math.round(fx),
+    focus_y:Math.round(fy)
+  });
+}
+
+function applyZoom(factor){
+  applyZoomAt(factor);
+}
+
+function resetZoom(){
+  zoomLevel=1;
+  svg.setAttribute('viewBox','0 0 1400 900');
+  document.getElementById('zoomResetBtn').textContent='100%';
+  logEvent('graph_zoom_reset',{zoom_percent:100});
+}
+
+function centerGraph(){
+  if(!model.nodes.length)return;
+  const minX=Math.min(...model.nodes.map(n=>n.x)),minY=Math.min(...model.nodes.map(n=>n.y));
+  const maxX=Math.max(...model.nodes.map(n=>n.x+n.w)),maxY=Math.max(...model.nodes.map(n=>n.y+n.h));
+  svg.setAttribute('viewBox',`${minX-120} ${minY-100} ${Math.max(450,maxX-minX+240)} ${Math.max(340,maxY-minY+200)}`);
+  zoomLevel=1;
+  document.getElementById('zoomResetBtn').textContent='100%';
+  logEvent('graph_centered',{node_count:model.nodes.length,transition_count:model.edges.length});
+}
+
+function loadSample() {
+  if (requireFirmware()) guarded(chooseRecipe)();
+}
+
+svg.onmousedown=e=>{
+  if(e.target!==svg || e.button!==0)return;
+
+  if(model.mode==='add-base'&&model.pendingBaseState){
+    const p=point(e);
+    addBaseNode(p.x-80,p.y-32,model.pendingBaseState);
+    return;
+  }
+
+  if(model.mode==='add-subfsm'){
+    const p=point(e);
+    addSubFSMNode(p.x-95,p.y-36);
+    return;
+  }
+
+  // Select/Move mode: dragging empty canvas pans the complete graph view.
+  const v=getViewBox();
+  graphPan={
+    startClientX:e.clientX,
+    startClientY:e.clientY,
+    lastClientX:e.clientX,
+    lastClientY:e.clientY,
+    startViewBox:{...v},
+    moved:false
+  };
+  svg.classList.add('panning');
+};
+
+svg.addEventListener('wheel',e=>{
+  e.preventDefault();
+  const p=point(e);
+  const factor=e.deltaY<0 ? 1.12 : (1/1.12);
+  applyZoomAt(factor,p.x,p.y);
+},{passive:false});
+
+window.onmousemove=e=>{
+  if(graphPan){
+    const rect=svg.getBoundingClientRect();
+    const v=graphPan.startViewBox;
+
+    const dx=e.clientX-graphPan.startClientX;
+    const dy=e.clientY-graphPan.startClientY;
+
+    const dxSvg=dx*(v.w/rect.width);
+    const dySvg=dy*(v.h/rect.height);
+
+    if(Math.abs(dx)>2 || Math.abs(dy)>2)graphPan.moved=true;
+
+    setViewBox({
+      x:v.x-dxSvg,
+      y:v.y-dySvg,
+      w:v.w,
+      h:v.h
+    });
+
+    graphPan.lastClientX=e.clientX;
+    graphPan.lastClientY=e.clientY;
+    return;
+  }
+
+  if(!model.dragging)return;
+  const n=node(model.dragging);if(!n)return;
+  const p=point(e);
+  n.x=Math.max(0,p.x-model.dragOffset.x);
+  n.y=Math.max(0,p.y-model.dragOffset.y);
+  render();
+};
+window.onmouseup=()=>{
+  if(graphPan){
+    const moved=graphPan.moved;
+    const v=getViewBox();
+
+    if(moved){
+      logEvent('graph_panned',{
+        view_x:Math.round(v.x),
+        view_y:Math.round(v.y),
+        view_width:Math.round(v.w),
+        view_height:Math.round(v.h)
+      });
+    }else{
+      // A simple click on empty canvas keeps the traditional deselect behavior.
+      select(null);
+      render();
+    }
+
+    graphPan=null;
+    svg.classList.remove('panning');
+    return;
+  }
+
+  if(model.dragging){
+    const n=node(model.dragging);
+    logEvent('state_moved',{id:n?.id,name:n?.name,x:n?.x,y:n?.y});
+  }
+  model.dragging=null;
+};
+
+window.addEventListener('blur',()=>{
+  graphPan=null;
+  model.dragging=null;
+  svg.classList.remove('panning');
+});
+window.onkeydown=e=>{
+  const editing=['INPUT','TEXTAREA','SELECT'].includes(document.activeElement?.tagName)||
+    document.activeElement?.isContentEditable;
+  if((e.ctrlKey||e.metaKey)&&!editing){
+    const key=e.key.toLowerCase();
+    if(key==='c'&&model.selected?.type==='node'){e.preventDefault();copySelectedStateConfig();renderInspector();return;}
+    if(key==='v'&&model.selected?.type==='node'){e.preventDefault();pasteSelectedStateConfig();return;}
+    if((key==='y'||(key==='z'&&e.shiftKey))&&pasteRedo){e.preventDefault();redoStateConfigPaste();return;}
+    if(key==='z'&&pasteUndo){e.preventDefault();undoStateConfigPaste();return;}
+  }
+  if((e.key==='Delete'||e.key==='Backspace')&&!['INPUT','TEXTAREA','SELECT'].includes(document.activeElement?.tagName))deleteSelected();
+  if(e.key==='Escape'){
+    model.pendingBaseState=null;model.transitionSource=null;returnToSelect('Select mode');
+  }
+};
+
+document.getElementById('selectTool').onclick=()=>returnToSelect('Select mode');
+
+document.getElementById('subfsmBtn').onclick=()=>{
+  model.mode='add-subfsm';model.pendingBaseState=null;model.transitionSource=null;
+  document.getElementById('selectTool').classList.remove('active');
+  document.getElementById('transitionTool')?.classList.remove('active');
+  status('Click canvas to add SubFSM');
+};
+
+
+// Los botones existentes no crean catálogos paralelos al firmware.
+for (const id of ['addStateDefBtn','addMacroBtn','saveMacroBtn','removeMacroBtn']) {
+  const button=document.getElementById(id);
+  if(button)button.onclick=()=>alert('Edita el catálogo en FSMDefinitions.h y recarga el proyecto con Import Firmware FSM.');
+}
+
+document.getElementById('debugEnabled').onchange=e=>{
+  DEBUG_LOGGING=e.target.checked;
+  if(DEBUG_LOGGING)logEvent('debug_logging_enabled',{});
+};
+
+document.getElementById('downloadLogBtn').onclick=()=>{
+  const filename=`fsm-gui-debug-${new Date().toISOString().replace(/[:.]/g,'-')}.log`;
+  const content=formatDebugLog();
+  logEvent('debug_log_downloaded',{filename,events:DEBUG_LOG.length});
+  downloadTextFile(filename,formatDebugLog());
+};
+
+document.getElementById('copyLogBtn').onclick=async()=>{
+  try{
+    await navigator.clipboard.writeText(formatDebugLog());
+    logEvent('debug_log_copied',{events:DEBUG_LOG.length});
+    status('Debug log copied');
+  }catch(err){
+    logEvent('debug_log_copy_error',{message:err.message});
+    alert('Could not copy log.');
+  }
+};
+
+document.getElementById('clearLogBtn').onclick=()=>{
+  DEBUG_LOG.length=0;
+  const count=document.getElementById('debugCount');
+  if(count)count.textContent='0 events';
+  logEvent('debug_log_cleared',{});
+};
+
+document.getElementById('zoomInBtn').onclick=()=>applyZoom(1.2);
+document.getElementById('zoomOutBtn').onclick=()=>applyZoom(1/1.2);
+document.getElementById('zoomResetBtn').onclick=resetZoom;
+document.getElementById('fitBtn').onclick=centerGraph;
+document.getElementById('sampleBtn').onclick=loadSample;
+document.getElementById('newBtn').onclick=guarded(()=>{
+  if (!requireFirmware()) return;
+  const name=prompt('Nombre de la nueva receta:');
+  if (!name) return;
+  const identity=RecipeCore.normalize(name);
+  if (firmwareProject.files.has('include/fsm/recipes/'+identity.file)) throw new Error('Ya existe ese archivo.');
+  loadRecipe(RecipeCore.freshRecipe(firmwareProject.api,name));
+});
+
+document.getElementById('exportHeaderBtn').onclick=guarded(()=>{
+  if(!requireFirmware())return;
+  const {recipe,definitions,api}=RecipeBackend.exportWithStateNames(
+    firmwareProject,headerExportGraph(),recipeIdentity);
+  const companions = definitions!==firmwareProject.files.get(RecipeBackend.paths.definitions)
+    ? [{filename:'FSMDefinitions.h',text:definitions}] : [];
+  showModal(companions.length?'C++ Recipe Header + FSMDefinitions.h':'C++ Recipe Header',RecipeCore.emit(api,recipe),recipe.file,companions);
+  if (companions.length) status('Descargar ambos archivos: receta en include/fsm/recipes/ y catálogo en include/fsm/FSMDefinitions.h.');
+});
+document.getElementById('exportJsonBtn').onclick=guarded(()=>showModal('FSM JSON',JSON.stringify(exportData(),null,2),'fsm-context.json'));
+document.getElementById('exportDslBtn').onclick=guarded(()=>showModal('FSM Text',exportDsl(),'fsm-context.fsm'));
+
+const fileInput=document.getElementById('fileInput');
+fileInput.multiple=true;
+fileInput.accept='.h,.hpp,.hh,.json,text/plain';
+document.getElementById('importHeaderBtn').onclick=guarded(async event=>{
+  // Alt permite importar una receta suelta; el flujo normal no pide headers.
+  if (event.altKey && firmwareProject.api) { fileInput.click(); return; }
+  await firmwareProject.openFromUrl(window.location.href);
+  projectLoaded();
+});
+fileInput.onchange=guarded(async event=>{
+  const files=[...event.target.files]; event.target.value='';
+  if (!files.length) return;
+  const sources=await Promise.all(files.map(async file=>({name:file.name,text:await file.text()})));
+  const support=new Map(Object.values(RecipeBackend.paths).map(path=>[path.split('/').pop(),path]));
+  if (!firmwareProject.api || sources.some(file=>support.has(file.name))) {
+    const entries=new Map(sources.map(file=>[support.get(file.name)||'include/fsm/recipes/'+file.name,file.text]));
+    const project=new RecipeBackend.Project();
+    project.load(entries);
+    Object.assign(firmwareProject,project);
+    projectLoaded();
+    return;
+  }
+  if (sources.length!==1) throw new Error('Selecciona una receta o un documento de grafo actual.');
+  const source=sources[0];
+  if (source.name.endsWith('.json')) {
+    const doc=JSON.parse(source.text);
+    if (doc.format!=='mbaretech-current-graph'||doc.version!==1) throw new Error('Documento incompatible; no se convierten formatos antiguos.');
+    firmwareProject.restoreGraph(doc.graph,doc.identity,doc.instances||[]);
+    Object.assign(model,doc.graph,{parameters:doc.graph.parameters||[],selected:null,mode:'select',dragging:null,transitionSource:null});
+    recipeIdentity=doc.identity;
+    model.nextNode=1+Math.max(0,...model.nodes.map(item=>Number(item.id.slice(1))));
+    model.nextEdge=1+Math.max(0,...model.edges.map(item=>Number(item.id.slice(1))));
+    model.nextStep=1+Math.max(0,...model.nodes.flatMap(item=>(item.sequence||[]).map(step=>Number(step.id.slice(1)))));
+    model.nextStepTransition=1+Math.max(0,...model.nodes.flatMap(item=>(item.sequence||[]).flatMap(step=>step.out_transitions.map(edge=>Number(edge.id.slice(2))))));
+    render();renderInspector();centerGraph();
+    validateTelemetryRecipe();
+  } else {
+    const recipe=RecipeCore.importRecipe(firmwareProject.api,source.text,source.name);
+    const mapping=RecipeCore.selections(firmwareProject.files.get(RecipeBackend.paths.selection)).find(item=>item.file===source.name);
+    if (mapping) recipe.macro=mapping.macro;
+    loadRecipe(recipe);
+  }
+});
+
+document.getElementById('closeBtn').onclick=()=>document.getElementById('modal').classList.remove('show');
+document.getElementById('copyBtn').onclick=async()=>{await navigator.clipboard.writeText(document.getElementById('modalText').value);status('Copied')};
+document.getElementById('downloadBtn').onclick=()=>{
+  const txt=document.getElementById('modalText').value,blob=new Blob([txt],{type:'text/plain'}),a=document.createElement('a');
+  a.href=URL.createObjectURL(blob);a.download=document.getElementById('downloadBtn').dataset.filename||'fsm.txt';a.click();URL.revokeObjectURL(a.href);
+  for (const companion of exportCompanions) downloadTextFile(companion.filename,companion.text);
+};
+document.getElementById('modal').onmousedown=e=>{if(e.target.id==='modal')document.getElementById('modal').classList.remove('show')};
+
+
+document.addEventListener('change',ev=>{
+  const el=ev.target;
+  if(!el || !el.id)return;
+  const interestingPrefixes=['n','e','out','seq','debug'];
+  if(!interestingPrefixes.some(p=>el.id.startsWith(p)))return;
+  logEvent('control_changed',{
+    id:el.id,
+    value:el.type==='checkbox'?el.checked:el.value,
+    selected:model.selected
+  });
+});
+
+renderStateLibrary();
+renderMacroLibrary();
+
+render();
+renderInspector();
+returnToSelect('Ready — empty FSM');
+logEvent('app_started',{version:31,initial_fsm:'empty'});
+})();
+</script>
+</body>
+</html>

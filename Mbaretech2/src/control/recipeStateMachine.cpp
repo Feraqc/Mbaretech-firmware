@@ -15,6 +15,7 @@ bool StateMachine::begin(uint32_t nowMs, RecipeErrorReporter report) {
         if (report) report(error_);
         return false;
     }
+    if (parameters_) parameters_->beginMachine();
     running_ = true;
     transitionTo(machine_.initial_state, nowMs);
     return true;
@@ -27,7 +28,7 @@ void StateMachine::transitionTo(StateId id, uint32_t nowMs) {
         return;
     }
     active_.exit();
-    active_.bind(next, &drive_, machine_.name, observer_);
+    active_.bind(next, &drive_, machine_.name, observer_, parameters_);
     active_.enter(nowMs);
 }
 void StateMachine::update(const SensorSnapshot& sensors, uint32_t nowMs) {

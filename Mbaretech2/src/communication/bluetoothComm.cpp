@@ -2,6 +2,10 @@
 #if ENABLE_LOGGING
 #include "bluetoothComm.h"
 #include "dataLogging.h"
+#include "telemetry/TelemetryService.h"
+#if ENABLE_RECIPE_FSM && ENABLE_TELEMETRY
+#include "fsm/ParameterService.h"
+#endif
 #if ENABLE_RECIPE_FSM
 #include "fsm/TransitionLog.h"
 #endif
@@ -40,10 +44,34 @@ void sendData(const String& data) {
 #endif
 }
 
+bool sendTelemetryBle(const char* line) {
+#if ENABLE_BLE
+    if (!connected || !tx || !line) return false;
+    const size_t length = strlen(line);
+    // BLE UART is a newline-delimited byte stream. The receiver reassembles
+    // ATT fragments before running the common telemetry decoder.
+    for (size_t offset = 0; connected && offset <= length; offset += 20) {
+        const size_t remaining = length + 1 - offset;
+        const size_t count = remaining > 20 ? 20 : remaining;
+        if (!count) break;
+        uint8_t fragment[20];
+        for (size_t i = 0; i < count; ++i)
+            fragment[i] = offset + i == length ? '\n' : uint8_t(line[offset + i]);
+        tx->setValue(fragment, count);
+        tx->notify();
+    }
+    return connected;
+#else
+    (void)line;
+    return false;
+#endif
+}
+
 #if ENABLE_BLE
 class MyServerCallbacks : public BLEServerCallbacks {
     void onConnect(BLEServer*) override {
         connected = true;
+        telemetryPublishHello();
         Command command = {"ayuda"};
         xQueueSend(commands, &command, 0);
     }
@@ -57,6 +85,13 @@ class MyServerCallbacks : public BLEServerCallbacks {
 class MyCallbacks : public BLECharacteristicCallbacks {
     void onWrite(BLECharacteristic* characteristic) override {
         const std::string value = characteristic->getValue();
+#if ENABLE_RECIPE_FSM && ENABLE_TELEMETRY
+        if (!value.empty() && (value[0] == '{' ||
+            fsm::parameterIngressActive(fsm::ParameterSource::Bluetooth))) {
+            for (char byte : value) fsm::parameterReceiveByte(fsm::ParameterSource::Bluetooth, byte);
+            return;
+        }
+#endif
         if (value.empty() || value.size() >= sizeof(Command::text)) return;
         Command command{};
         memcpy(command.text, value.data(), value.size());
@@ -74,6 +109,12 @@ static void readSerialCommands() {
     // Bound work per pass; never wait for an incomplete terminal line.
     for (int i = 0; i < 64 && Serial.available() > 0; ++i) {
         const char ch = static_cast<char>(Serial.read());
+#if ENABLE_RECIPE_FSM && ENABLE_TELEMETRY
+        if (ch == '{' || fsm::parameterIngressActive(fsm::ParameterSource::Serial)) {
+            fsm::parameterReceiveByte(fsm::ParameterSource::Serial, ch);
+            continue;
+        }
+#endif
         if (ch == '\n' && previousCR) { previousCR = false; continue; }
         previousCR = ch == '\r';
         if (ch == '\r' || ch == '\n') {
@@ -107,7 +148,9 @@ static void communicationsTask(void*) {
 #if ENABLE_SERIAL
         readSerialCommands();
 #endif
+#if !ENABLE_TELEMETRY
         loggingPoll();
+#endif
 #if ENABLE_RECIPE_FSM
         fsm::pollRecipeTransitions();
 #endif

@@ -1,8 +1,12 @@
 #include "globals.h"
 #include "bluetoothComm.h"
 #include "sensorTasks.h"
+#include "telemetry/TelemetryService.h"
+#include "fsm/WifiTelemetry.h"
 #if ENABLE_RECIPE_FSM
 #include "fsm/FSMDefinitions.h"
+#include "fsm/fsm_recipe_select.h"
+#include "fsm/ParameterService.h"
 #endif
 
 bool dipSwitch[4];
@@ -29,13 +33,35 @@ void IRAM_ATTR KS_ISR() {
 }
 
 void setup() {
-    esp_efuse_write_field_cnt(ESP_EFUSE_VDD_SPI_FORCE, 1);
+    //esp_efuse_write_field_cnt(ESP_EFUSE_VDD_SPI_FORCE, 1);
 
 #if ENABLE_SERIAL
     Serial.begin(115200);
 #endif
+#if ENABLE_RECIPE_FSM
+    // El servicio debe existir antes de que cualquier transporte o tarea lo use.
+    if (!fsm::parameterServiceStart(active_fsm_recipe::MACHINE)) {
+#if ENABLE_SERIAL
+        Serial.println("PARAMETER_SERVICE_INIT_FAILED");
+#endif
+        return;
+    }
+#endif
 #if ENABLE_LOGGING
     communicationsInit("MBARETECH");
+#endif
+#if ENABLE_TELEMETRY
+#if ENABLE_RECIPE_FSM
+    const bool telemetryReady = telemetryStart(active_fsm_recipe::MACHINE.name);
+#else
+    const bool telemetryReady = telemetryStart("COMBAT");
+#endif
+    // Telemetry is optional: allocation or worker failure must not stop control.
+#if ENABLE_SERIAL
+    if (!telemetryReady) Serial.println("TELEMETRY_INIT_FAILED");
+#else
+    (void)telemetryReady;
+#endif
 #endif
 #if ENABLE_GYRO_TEST
     imu.begin();
@@ -65,7 +91,8 @@ void setup() {
     pinMode(DIPE, INPUT);
 #endif
     // Start pin
-    pinMode(START_PIN, INPUT);
+    // START es activo en alto: pulldown evita un ON espurio con el pin libre.
+    pinMode(START_PIN, INPUT_PULLDOWN);
     attachInterrupt(digitalPinToInterrupt(START_PIN), KS_ISR, CHANGE);
     startSignal = digitalRead(START_PIN);
 #if ENABLE_FSM || ENABLE_RECIPE_FSM || ENABLE_MOTOR_TEST
@@ -98,6 +125,11 @@ void setup() {
     }
 #elif ENABLE_MOVEMENT_TEST
     xTaskCreate(stateMachineTask, "stateMachineTask", 4096, NULL, 1, &stateMachineTaskHandle);
+#endif
+
+#if ENABLE_WIFI_TELEMETRY
+    // WiFi transport delivers bounded commands to the low-priority command task.
+    fsm::startWifiTelemetry();
 #endif
 
 }

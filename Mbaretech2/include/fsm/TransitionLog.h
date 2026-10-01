@@ -18,6 +18,7 @@ struct TransitionEvent {
     MotorCommand motor;
     int16_t step;      // -1 for a basic state.
     int16_t nextStep;  // STEP_COMPLETE for internal completion; -1 for state exit.
+    uint32_t parameterRevision; // Revisión capturada al entrar al estado/paso.
 };
 using TransitionObserver = void (*)(const TransitionEvent& event);
 

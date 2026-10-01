@@ -5,24 +5,66 @@
 #include "fsm/StateMachine.h"
 #include "fsm/fsm_recipe_select.h"
 #include "fsm/RecipeLifecycle.h"
+#include "fsm/WifiTelemetry.h"
+#include "fsm/ParameterService.h"
+#include "telemetry/TelemetryService.h"
+#include <cstring>
 
 namespace {
 void reportRecipeError(const char* error) {
     // Startup/fault path only: no String allocation or transport IO per step.
+#if ENABLE_TELEMETRY
+    telemetryPublishText(TelemetryType::Error, error);
+#else
 #if ENABLE_LOGGING
     sendData(String("FSM_RECIPE_ERROR,") + error + "\n");
 #elif ENABLE_SERIAL
     Serial.print("FSM_RECIPE_ERROR,");
     Serial.println(error);
 #endif
+#endif
+}
+void recordRecipeTransition(const fsm::TransitionEvent& event) {
+#if ENABLE_TELEMETRY
+    TelemetryEvent record{};
+    record.type = event.scope == fsm::TransitionScope::STEP
+        ? TelemetryType::FsmStepTransition : TelemetryType::FsmTransition;
+    strncpy(record.machine, event.machine, sizeof(record.machine) - 1);
+    strncpy(record.state, fsm_defs::stateIdName(event.state), sizeof(record.state) - 1);
+    strncpy(record.next, fsm_defs::stateIdName(event.nextState), sizeof(record.next) - 1);
+    record.step = event.step;
+    record.nextStep = event.nextStep;
+    record.elapsedMs = event.elapsedMs;
+    record.timerMs = event.condition.timerMs;
+    record.paramRevision = event.parameterRevision;
+    if (event.condition.type == fsm::TriggerType::TIMER)
+        strncpy(record.condition, "TIMER", sizeof(record.condition) - 1);
+    else if (event.condition.type == fsm::TriggerType::COMPLETION)
+        strncpy(record.condition, "COMPLETION", sizeof(record.condition) - 1);
+    else {
+        size_t used = 0;
+        for (unsigned i = 0; i < event.condition.expression.termCount; ++i) {
+            const char* term = fsm_defs::conditionName(event.condition.expression.terms[i]);
+            const char* op = i ? (event.condition.expression.operators[i - 1] == fsm::LogicOp::AND ? " AND " : " OR ") : "";
+            const int n = snprintf(record.condition + used, sizeof(record.condition) - used,
+                                   "%s%s", op, term);
+            if (n < 0 || size_t(n) >= sizeof(record.condition) - used) break;
+            used += size_t(n);
+        }
+    }
+    telemetryPublish(record);
+#else
+    fsm::enqueueTransition(event);
+#endif
 }
 }
 
 void stateMachineTask(void*) {
     fsm::Drive drive(leftMotor, rightMotor);
-    fsm::StateMachine machine(active_fsm_recipe::MACHINE, drive, fsm::enqueueTransition);
+    fsm::StateMachine machine(active_fsm_recipe::MACHINE, drive, recordRecipeTransition,
+                              &fsm::parameterServiceStore());
     drive.begin();
-    // Reject even an idle malformed recipe immediately, before waiting for START.
+    // Reject malformed recipes before any command, regardless of START.
     const char* error = fsm::validateRecipe(active_fsm_recipe::MACHINE);
     if (error) {
         reportRecipeError(error);
@@ -30,8 +72,8 @@ void stateMachineTask(void*) {
         vTaskDelete(nullptr);
         return;
     }
-    bool running = false;
     TickType_t wake = xTaskGetTickCount();
+    uint32_t observedStartGeneration = fsm::parameterServiceStartGeneration();
 #if ENABLE_TASK_TIMING
     uint32_t previousStartUs = 0;
     bool hasPreviousStart = false;
@@ -40,21 +82,32 @@ void stateMachineTask(void*) {
 #if ENABLE_TASK_TIMING
         const uint32_t startUs = micros();
 #endif
-        const SensorSnapshot sensors = readSensorSnapshot();
+        SensorSnapshot sensors = readSensorSnapshot();
         const uint32_t nowMs = millis();
-        if (!fsm::canRunRecipe(sensors, nowMs)) {
+        const uint32_t startGeneration = fsm::parameterServiceStartGeneration();
+        if (startGeneration != observedStartGeneration) {
+            // ON y OFF invalidan tiempos y comandos retenidos antes de evaluar.
             machine.stop();
-            running = false;
-        } else {
-            // Restart the selected recipe after STOP or stale/invalid acquisition.
-            if (!running) running = machine.begin(nowMs);
-            if (running) machine.update(sensors, nowMs);
-            // Catch a STOP edge received during evaluation via the same interface.
-            if (!fsm::canRunRecipe(readSensorSnapshot(), millis())) {
-                machine.stop();
-                running = false;
-            }
+            sensors = readSensorSnapshot();
+            observedStartGeneration = startGeneration;
         }
+        fsm::updateRecipeControl(machine, drive, sensors, nowMs);
+        fsm::parameterServiceRunning(machine.isRunning());
+        // Catch a falling START edge during evaluation without resetting the FSM.
+        // Data that became stale/invalid meanwhile still causes a real stop.
+        const SensorSnapshot latest = readSensorSnapshot();
+        fsm::refreshRecipeMotorPermission(machine, drive, latest, millis());
+        telemetryPublishState(active_fsm_recipe::MACHINE.name,
+                              fsm_defs::stateIdName(machine.currentState()), machine.currentStep(),
+                              machine.stateElapsedMs(nowMs), machine.stepElapsedMs(nowMs),
+                              machine.isRunning(),
+                              machine.error() ? "ERROR" : !latest.valid ? "SNAPSHOT_INVALID" :
+                              !fsm::isControlDataValid(latest, millis()) ? "SNAPSHOT_STALE" :
+                              !fsm::effectiveStartActive(latest) ? "START_INACTIVE" : "RUNNING",
+                              machine.activeRevision());
+        const fsm::MotorCommand output = drive.outputCommand();
+        telemetryPublishMotor(output.left_pct, output.right_pct,
+                              fsm_defs::stateIdName(machine.currentState()), machine.activeRevision());
         if (machine.error()) {
             reportRecipeError(machine.error());
             machine.stop();

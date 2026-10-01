@@ -12,10 +12,34 @@ using fsm_defs::StateId;
 enum class TriggerType : uint8_t { TIMER, SENSOR, COMPLETION };
 enum class LogicOp : uint8_t { AND, OR };
 static constexpr int16_t STEP_COMPLETE = -1;
+using ParameterId = uint16_t;
+static constexpr ParameterId NO_PARAMETER = 0;
+enum class ParameterType : uint8_t { Integer };
+enum class ParameterUnit : uint8_t { Percent, Milliseconds };
+enum class ParameterPolicy : uint8_t { Immediate, NextStateEntry, NextStepEntry, NextMachineStart, StoppedOnly };
+enum class ParameterAccess : uint8_t { Writable, ReadOnly };
+// IDs and keys belong to the recipe, independently of table order.
+struct ParameterDefinition {
+    ParameterId id;
+    const char* key;
+    const char* name;
+    ParameterType type;
+    ParameterUnit unit;
+    int32_t defaultValue;
+    int32_t minimum;
+    int32_t maximum;
+    int32_t step;
+    ParameterPolicy policy;
+    ParameterAccess access;
+};
 
 struct MotorCommand {
     int8_t left_pct;
     int8_t right_pct;
+    // 0 usa el literal; otro ID resuelve el parámetro y conserva el literal
+    // como valor de respaldo/documentación del header.
+    ParameterId leftParameter;
+    ParameterId rightParameter;
 };
 // Explicit lengths let validation reject mismatched AND/OR expressions before
 // reading them. Array storage must still be at least as long as its declared count.
@@ -29,6 +53,8 @@ struct TriggerRecipe {
     TriggerType type;
     uint32_t timerMs;              // TIMER only, milliseconds from state/step entry.
     ConditionExpression expression; // SENSOR only; evaluated left to right.
+    // TIMER solamente; 0 conserva timerMs como literal.
+    ParameterId timerParameter;
 };
 struct StateTransitionRecipe {
     TriggerRecipe trigger;
@@ -66,5 +92,7 @@ struct MachineRecipe {
     const StateRecipe* states;
     uint8_t state_count;
     const char* name; // Required static recipe identity used by debug events.
+    const ParameterDefinition* parameters;
+    uint16_t parameterCount;
 };
 }  // namespace fsm

@@ -1,0 +1,2 @@
+# POSIX launcher must retain LF line endings after a Windows checkout.
+start_editor.sh text eol=lf

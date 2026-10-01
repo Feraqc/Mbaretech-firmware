@@ -10,6 +10,116 @@ El trabajo de firmware se limita a `Mbaretech2`. Mantener este `docs/firmware.md
 
 El programa genérico se habilita con `ENABLE_RECIPE_FSM=1`; el combate existente conserva `ENABLE_FSM=1`. Son excluyentes. No se migró ni modificó la estrategia de `CombatFsm`. El namespace `fsm` separa el runtime genérico del enum global `State` del controlador anterior.
 
+## Editor v31: backend actual con interfaz original
+
+Iniciar [iniciar_editor.cmd](../iniciar_editor.cmd) en Windows: abre el editor en `http://127.0.0.1:8765/fsm_context_editor_v31.html`. El lanzador prefiere Node.js 16+ con `tools/recipe-editor/serve.cjs`; después prueba Python 3.10+ con `tools/recipe-editor/serve.py`, y finalmente usa Windows PowerShell con `tools/recipe-editor/serve.ps1`, sin instalar un runtime adicional. Comprueba el intérprete antes de usar el entorno virtual de PlatformIO: ese `python.exe` puede existir aunque falte su intérprete base. En macOS/Linux, ejecutar `sh start_editor.sh`; se necesita Node.js 16+ o Python 3.10+. La raíz se resuelve desde la ubicación del script dentro de Mbaretech2, sin elegir carpeta ni headers. No abrir directamente el HTML con `file://` para cargar firmware. Se conservan canvas, bibliotecas, inspector y edición del frontend original; el único espacio nuevo es el dock inferior opcional de Live Telemetry. Una prueba fija la huella del marcado actual sin scripts; no se carga la interfaz alternativa de `tools/recipe-editor/app.js` / `style.css`.
+
+### Uso de los controles existentes
+
+- **Import Firmware FSM** lee siempre las rutas fijas `include/fsm/FSMRecipeTypes.h`, `include/fsm/FSMDefinitions.h`, `include/buildConfig.h` y `include/fsm/fsm_recipe_select.h`. El listado `api/recipes` descubre todos los `fsm_recipe_*.h` de la carpeta real, incluso los no seleccionados. Repetir el botón recarga los archivos sin caché. **Alt + Import Firmware FSM**, con proyecto cargado, permite importar una receta o JSON suelto. No hay selección manual de archivos de soporte ni copias incrustadas de los headers. Si falta un archivo, se informa su ruta.
+- Después de cargar el proyecto se elige una receta compatible por nombre. **Sample** permite seleccionar otra receta del proyecto. `TEST`, `TURN_CALIBRATION` y `EDITOR_TEST` usan el API actual. `COMBAT` es un placeholder explícito y se informa como «no disponible»; el combate real continúa en `CombatFsm`. Las recetas realmente incompatibles se omiten sin popup. El resumen aparece en la barra de estado y los detalles en Debug log y `FSMFirmware.diagnostics()`.
+- Al importar una receta, el nombre visible de cada estado se toma de `StateMetadata.name` en `FSMDefinitions.h`; si no existe, se muestra el `StateId`. El editor mantiene el `StateId` original durante la sesión conectada para conservar las referencias de telemetría. **Export Header** genera una copia donde cada `StateId` coincide con el nombre normalizado y actualiza las referencias; también genera `FSMDefinitions.h` si hace falta. El guardado revisado y Export JSON conservan las identidades del grafo editable. Después de instalar y volver a importar ambos archivos exportados, el editor y el firmware mostrarán los nuevos IDs.
+- Los nombres de estados del grafo deben ser únicos (sin distinguir mayúsculas/minúsculas) y no vacíos: el inspector rechaza un duplicado y la validación de exportación lo vuelve a comprobar. La importación también verifica que `StateId` y `ConditionId` (macros de condición) tengan nombres de metadatos únicos en sus respectivos catálogos; los IDs enum duplicados ya se rechazan. Los controles visuales de catálogo siguen remitiendo a `FSMDefinitions.h` para editar macros.
+- Al importar timers de una receta C++, el editor genera una etiqueta única desde el nombre del estado, por ejemplo `MOTOR_SEQUENCE_TIMER` y `MOTOR_SEQUENCE_1_TIMER`, con sufijos si hay más de uno. El header guarda la duración o referencia de timer, pero no la etiqueta visual. Export Header conserva la duración literal salvo cuando existe un valor Live Test pendiente o aceptado para el parámetro de ese timer; en ese caso exporta ese valor como respaldo literal, sin añadir IDs falsos al firmware.
+- **New** pide un nombre y crea una receta detenida válida con el primer StateId del catálogo. Se normalizan archivo, namespace y selector con `RecipeCore.normalize`.
+- La biblioteca lateral contiene los StateId del proyecto y permite colocarlos repetidamente. La primera colocación usa el ID base; las siguientes reciben un sufijo libre, por ejemplo `MOTOR_SEQUENCE_1` y `MOTOR_SEQUENCE_2`. Si ya existe una instancia de esa base en el canvas, se copia su comportamiento con objetos independientes: MotionId, porcentajes, pasos, transiciones internas y salidas. Los pasos/transiciones reciben IDs gráficos nuevos; los bucles al propio estado se redirigen a la copia. Solo la instancia inicial original conserva `initial=true`. El nombre visible de cada copia usa `StateMetadata.name`, o el nuevo StateId si no hay nombre registrado.
+- Las identidades nuevas se registran en una copia de trabajo de `FSMDefinitions.h`: se agregan al final de StateId antes de COUNT y a la tabla STATES, sin renumerar IDs existentes. No se redefinen enums dentro de las recetas ni se cambia el runtime. El límite continúa siendo el catálogo uint8_t y 255 estados por receta. Eliminar una instancia deja su ID disponible para otra colocación; las entradas de catálogo ya registradas no se borran automáticamente.
+- Los botones originales de edición de catálogos se conservan visualmente, pero indican que los IDs deben editarse en `FSMDefinitions.h` y recargarse. No crean bibliotecas paralelas dentro del editor.
+- **Export Header** valida y genera únicamente tablas del API actual, con `../FSMRecipeTypes.h`, namespace, nombre de máquina y política de finalización. En el header exportado, cada `StateId` se deriva del nombre visible del estado (mayúsculas y guiones bajos: `Forward left 45` → `FORWARD_LEFT_45`); los destinos de transición se actualizan al mismo ID. Los IDs nuevos se agregan al catálogo sin borrar los IDs anteriores que puedan usar otras recetas. Si cambia el catálogo, el modal indica `C++ Recipe Header + FSMDefinitions.h` y **Download** descarga ambos archivos. Colocar la receta en `include/fsm/recipes/` y el catálogo en `include/fsm/FSMDefinitions.h`; copiar únicamente el texto de la receta no instala sus IDs nuevos. El guardado revisado también incluye el catálogo en su lista de archivos.
+- **Export JSON** guarda un documento `mbaretech-current-graph` versión 1, con geometría, etiquetas, identidad de receta y las adiciones de StateId pendientes. Al reabrirlo, esas adiciones se validan y se restauran en memoria antes de validar el grafo. **Alt + Import Firmware FSM** permite cargar ese JSON después de cargar el firmware, validándolo contra el API actual. No admite JSON ni metadatos de editores anteriores. **Export FSM Text** produce una descripción legible del modelo actual; no es otro formato de ejecución.
+
+El backend separa `stateId` de la propiedad de movimiento y conserva el orden de aristas/pasos. Las referencias a timers y porcentajes de `FSMDefinitions.h` se conservan al importar/exportar mientras su valor no se edite en los controles. Un destino de paso eliminado queda inválido; no se convierte automáticamente en STEP_COMPLETE. La validación bloquea IDs desconocidos, duplicados, múltiples estados iniciales, destinos inválidos, comandos fuera de rango, expresiones mal contadas y finalización sin salida/retención explícita.
+
+### Integración sin paneles nuevos
+
+`window.FSMFirmware` expone el backend al frontend existente y a la consola del navegador:
+
+```javascript
+FSMFirmware.recipes();
+FSMFirmware.select('TURN_CALIBRATION');
+FSMFirmware.configure({
+  ENABLE_FSM: 0,
+  ENABLE_RECIPE_FSM: 1,
+  ENABLE_SENSOR_TASK: 1,
+  ENABLE_MOTORS: 0,
+  ENABLE_SERIAL: 1,
+  ENABLE_BLE: 0,
+  ENABLE_LOGGING: 0,
+  FSM_CONSOLE_COMPACT: 1
+});
+FSMFirmware.previewSave(); // Muestra rutas y contenido anterior/posterior en el modal existente.
+// Después de revisar el modal:
+FSMFirmware.downloadReviewed();
+// Con carpeta abierta mediante FSMFirmware.open(handle):
+// await FSMFirmware.saveReviewed();
+```
+
+La carga por URL es de solo lectura y no concede permiso de escritura. Para este flujo normal usar `downloadReviewed()` y colocar los archivos descargados en las rutas de la vista previa. La API `FSMFirmware.open(await showDirectoryPicker())` sigue disponible si se desea conceder acceso directo a una carpeta y usar `saveReviewed()`. El servidor solo escucha en 127.0.0.1, sirve el editor y los headers permitidos, no expone el resto del repositorio y no acepta escrituras. Se cierra con Ctrl+C. Si el puerto está ocupado, ejecutar `iniciar_editor.cmd --port OTRO_PUERTO`; `--no-browser` impide abrir la pestaña automáticamente.
+
+`configure()` usa exclusivamente defines existentes; la vista previa comprueba dependencias conocidas antes de generar. `previewSave()` prepara el header, `buildConfig.h`, el bloque necesario de `fsm_recipe_select.h` y `FSMDefinitions.h` cuando hay nuevas instancias. `saveReviewed()` confirma la escritura, solicita permiso y verifica que originales y headers del API no hayan cambiado externamente. Las escrituras múltiples no son una transacción; si falla alguna, se enumeran las ya realizadas. No se borra ni reescribe código ajeno al selector reconocido. `active_fsm_recipe::MACHINE` permanece igual.
+
+También están disponibles `FSMFirmware.setMotion('S1', 'FORWARD')` para la semántica de un estado básico y `FSMFirmware.setCompletionHold('S2', true)` para retención explícita de un SubFSM. Esto evita introducir controles nuevos en el diseño original. Los comandos de motores se editan con los controles existentes; MotionId no sustituye esos porcentajes.
+
+### Archivos y verificación
+
+- `fsm_context_editor_v31.html`: cableado de los controles y adaptación al backend, con marcado/CSS original intacto.
+- `tools/recipe-editor/core.js`: parser, catálogos y exportador basados en los headers reales; rechaza identificadores de enum incompatibles.
+- `tools/recipe-editor/backend.js`: conversión grafo/receta, proyecto, configuración, vista previa y escritura.
+- `tools/recipe-editor/backend.test.cjs`: pruebas del grafo, referencias centrales, errores, cableado de botones con DOM simulado, huella visual y escritura con archivos simulados.
+
+Pasaron `node Mbaretech2/tools/recipe-editor/test.cjs` y `node Mbaretech2/tools/recipe-editor/backend.test.cjs`. Un header producido mediante el botón de exportación en la prueba compiló y enlazó con el validador C++ real. Ese ejecutable no se ejecutó; las pruebas del navegador con permisos reales tampoco se realizaron. La comprobación de marcado/CSS no sustituye una prueba visual interactiva.
+
+La carga por rutas fijas se comprobó con `node Mbaretech2/tools/recipe-editor/url.test.cjs` y `python Mbaretech2/tools/recipe-editor/serve_test.py`: headers reales, descubrimiento de recetas, falta de archivos, ausencia de caché, bloqueo de rutas ajenas y rechazo de escrituras. También pasó de nuevo la prueba del backend y conservación del marcado visual.
+
+El lanzador se comprobó con `iniciar_editor.cmd --no-browser --port 0`: eligió Node.js aun con el Python virtual de PlatformIO roto y sirvió el HTML con HTTP 200. Con Node/Python fuera de `PATH`, eligió el servidor PowerShell, que respondió a los recursos y recetas permitidos con HTTP 200 y rechazó rutas ajenas y escrituras. `sh start_editor.sh --no-browser --port 0` inició el servidor Node desde Git Bash. La apertura del navegador en Windows usa `Start-Process` con la URL local, sin el comando `cmd start` que interpretaba incorrectamente las comillas y podía intentar abrir `\\`. Si falla la asociación de navegador, la URL impresa se puede abrir manualmente. `node Mbaretech2/tools/recipe-editor/serve.test.cjs` verifica las rutas, el listado de recetas, la ausencia de caché y el rechazo de rutas ajenas y escrituras en el servidor Node; el servidor Python se conserva como alternativa.
+
+### Recetas existentes y compatibilidad
+
+`fsm_recipe_test.h` usa el esquema de `FSMRecipeTypes.h`. Su ciclo actual es `IDLE → MOTOR_SEQUENCE → MOTOR_SEQUENCE_1 → MOTOR_SEQUENCE`, con intervalos de 5000, 2500 y 2500 ms y comandos 0, +100 y −100 % en ambas ruedas. Sólo la velocidad y la duración de avance son parámetros declarados; los demás campos son literales. `TEST` puede seleccionarse con `FSM_ACTIVE_RECIPE_TEST` y editarse/importarse desde el GUI.
+
+`fsm_recipe_combat.h` sigue siendo un placeholder no compilable de la traducción genérica: el esquema actual no expresa las aperturas DIP, las negaciones de sensores ni el temporizador persistente del combate. El editor lo identifica mediante `FSM_RECIPE_UNAVAILABLE` y no lo ofrece como receta editable ni lo confunde con un archivo roto. Para combate se usa `ENABLE_FSM=1`, que conserva `CombatFsm` y sus parámetros. Seleccionar `FSM_ACTIVE_RECIPE_COMBAT` para el runtime genérico todavía produce un error de compilación deliberado.
+
+Verificación de esta migración: pasaron las pruebas Node del parser y la carga por URL; el test de backend conservó la huella del frontend original. PlatformIO compiló la receta TEST y volvió a compilar la selección EDITOR_TEST guardada, usando siempre `[env:firmware]`; `buildConfig.h` se restauró byte por byte. Las variantes host de START y formato estructurado/compacto compilaron; dos se ejecutaron y pasaron, y Device Guard impidió ejecutar otra variante. El formateador compacto de estados se ajustó a `[FSM]` y fin de línea LF para coincidir con el formato documentado; no cambió eventos ni temporización. No se cargó firmware en hardware.
+
+Pruebas de instancias repetidas: pasaron las pruebas Node de colocación repetida, copias independientes de SubFSM, IDs de pasos, bucles propios, eliminación/reutilización, guardado del catálogo y round-trip de JSON. El header con múltiples instancias y su catálogo ampliado compilaron y enlazaron con el validador C++ real usando una copia de pruebas bajo `.pio`; no se ejecutó ese binario ni se modificaron los headers reales del proyecto para la prueba. El test comprueba también que las recetas incompatibles no generan un popup de carga.
+
+La selección guardada ahora es STATE_TEST. No se cargó firmware.
+
+## Live Telemetry integrado en el editor
+
+La telemetría canónica se habilita con `ENABLE_TELEMETRY=1` y un programa `ENABLE_RECIPE_FSM=1` o `ENABLE_FSM=1`. Requiere al menos un transporte: `ENABLE_SERIAL`, `ENABLE_BLE` o `ENABLE_WIFI_TELEMETRY`. La configuración permanece en `include/buildConfig.h` y se valida en `firmwareConfig.h`; `platformio.ini` conserva un solo target. `ENABLE_BLE` mantiene su dependencia de `ENABLE_LOGGING` para el servicio UART existente. Con `ENABLE_TELEMETRY=0`, la salida anterior de recetas y el registrador legado siguen disponibles. Con telemetría canónica activa, la emisión periódica del registrador anterior se suspende para que Serial/BLE/WiFi transporten las mismas líneas JSON; los mensajes de menús de comandos son externos al protocolo de observación.
+
+### Captura, colas y protocolo
+
+Los productores llaman a `telemetryPublish()` o a los helpers de `TelemetryService.h`. La adquisición publica una copia de `SensorSnapshot` y cambios de START/IR/línea; el control publica cambios de motor y estado; el observador de la receta publica las transiciones de estado y SubFSM; combate publica cambios de estado; `recordTaskTiming` publica muestras cuando está habilitado; la tarea IMU publica yaw cuando `ENABLE_GYRO=1`. START conserva su papel de permiso de ejecución y nunca se transforma en una transición de receta. Las fuentes no serializan JSON ni realizan E/S de transporte. Cada evento lleva `atUs` de `esp_timer_get_time()` tomado en el productor; `t` es su valor en milisegundos. El despachador asigna `seq` en orden de cola, antes de repartir el mismo mensaje a los tres transportes. Los IDs de estado y condición del firmware son las identidades estables; las etiquetas visuales del editor no sustituyen esos IDs. `stateIdName()` usa `STATE_ID_NAMES` para enviar el token enum incluso si se edita `StateMetadata.name`; el editor agrega ambos catálogos al crear un StateId nuevo.
+
+`TelemetryEvent` es una estructura fija para permitir otro encoding en el futuro. El formato actual es JSON de una línea con `type`, `seq`, `t`, `us` y payload. `hello` declara `protocol:1`, `schema:2` y `machine`; se repite cada cinco segundos para terminales Serial conectadas tarde, y se emite al conectar BLE o WiFi. Los tipos son `hello`, `heartbeat`, `start_changed`, `sensors`, `ir_changed`, `line_changed`, `motor`, `fsm_status`, `fsm_transition`, `fsm_step`, `task_timing`, `stats`, `imu`, `error` y `log`. `sensors` incluye validez, tiempo de muestreo, IR1–IR7, línea filtrada, ADC y umbral. `fsm_status` comunica estado/paso, tiempos transcurridos de estado y paso, si ejecuta y la razón de bloqueo/parada; `motor` comunica la salida efectiva y su estado de origen. Las transiciones incluyen condición, duración del timer y tiempo transcurrido. En combate la condición se registra como `STATE_CHANGE` porque el controlador anterior no expone la condición de decisión. `stats` informa contadores acumulados de pérdidas por captura, Serial, BLE y WiFi. Los mensajes de error de receta pasan por el mismo servicio.
+
+La cola de captura tiene 128 eventos; las colas independientes de Serial, BLE y WiFi tienen 32, 16 y 32 mensajes, respectivamente. El servidor WebSocket admite hasta ocho envíos pendientes. Todas las escrituras del productor son de espera cero; si una cola se llena, pierde su copia e incrementa el contador correspondiente. Un transporte lento solo satura su propia cola. Las transiciones, cambios de START/sensores y cambios de motor no se limitan deliberadamente por tasa; `sensors` y `fsm_status` se muestrean cada 100 ms, timing cada 100 ms, IMU cada 50 ms y heartbeat/estadísticas cada segundo. Los clientes detectan pérdidas de transporte mediante saltos de `seq` y pérdidas de captura con `stats`.
+
+Serial emite una línea NDJSON por mensaje; BLE UART envía exactamente esos bytes con `\n` final, fragmentados en tramos de hasta 20 bytes para reensamblar por línea; WiFi envía el mismo JSON en frames de texto WebSocket. BLE y Serial tienen tareas de salida separadas de la tarea WiFi. Una desconexión no detiene control ni reinicia el robot. El WebSocket ignora datos entrantes: no se implementan START, motores, estados forzados, reemplazo de recetas, calibración remota, OTA ni subida de topología.
+
+### WiFi y editor integrado
+
+`ENABLE_WIFI_TELEMETRY=1` activa `/ws` en el ESP32. Con `WIFI_TELEMETRY_USE_STA=0` crea el AP configurado en `buildConfig.h`; la consola puede usar `ws://192.168.4.1/ws`. Con `WIFI_TELEMETRY_USE_STA=1` se conecta al SSID configurado, con espera máxima de 10 s; un fallo emite `error` por los transportes restantes. No se distribuyen credenciales privadas en archivos fuente. Para Wokwi VS Code, [wokwi.toml](../wokwi.toml) reenvía `localhost:8180` al puerto 80 simulado: compilar `firmware`, iniciar el simulador y conectar la consola a `ws://127.0.0.1:8180/ws`. La configuración guardada usa `Wokwi-GUEST`; la receta seleccionada por `FSM_ACTIVE_RECIPE_STATE_TEST` identifica su máquina como `state_test`. El probe puede comprobarla con `node tools/recipe-editor/wokwi-probe.cjs ws://127.0.0.1:8180/ws state_test`.
+
+El botón **Open Telemetry Console** abre [telemetry_console.html](../telemetry_console.html) en una ventana con nombre fijo; pulsarlo otra vez enfoca la misma ventana. El editor conserva todo su espacio para editar recetas y resaltar el grafo. Solo la consola abre WiFi, Serial, Bluetooth o Mock. Los cuatro transportes alimentan `decodeTelemetryMessage()`, el mismo `TelemetrySession` y `TelemetryStore`; Web Serial y Web Bluetooth dependen del soporte y permisos del navegador. Mock genera el protocolo canónico con secuencia y microsegundos, incluyendo sensores, cambios de IR/línea, estados/pasos FSM, motores, timing y pérdida simulada, para probar la UI sin ESP32.
+
+La consola usa paneles modulares en una cuadrícula adaptable. Cada panel se puede mover, ampliar a dos columnas, maximizar y colapsar; el orden y tamaño se guardan en `localStorage`, y **Reset layout** recupera los tamaños iniciales. Las vistas son Overview, Signals, FSM, Performance, Events, Terminal y Capture. La cabecera muestra conexión, máquina, versión de protocolo/esquema, uptime, RX eventos/bytes por segundo, saltos de secuencia, pérdidas y edad del último paquete. Los controles permiten detener solo el repintado, grabar, limpiar, elegir ventanas de 500 ms a 30 s y alternar densidad. **Pause UI** no detiene recepción ni captura. Los paneles muestran indicadores START/FSM/motores/snapshot, robot orientado, línea raw/umbral/filtrada, motor firmado, lógica IR/línea/START/FSM/SubFSM, series de motor/ADC/timing, línea de estados, eventos filtrables, terminal formateada o JSON y salud de transporte separada de la del control. Al elegir un evento, la inspección se centra en su marca de tiempo; la rueda sobre una gráfica cambia la ventana temporal.
+
+La base de tiempo humana es **milisegundos de dispositivo**, con tres decimales para preservar resolución de 1 µs (`25080853 us` → `25080.853 ms`). `TelemetryStore` conserva `us` y añade `timeUs`/`timeMs` no enumerables, por lo que el JSON Raw y la captura canónica no se alteran. El campo `t` ya viene en ms y no se divide otra vez. Los ejes temporales, tablas, terminal, tooltips y duración de estados/pasos muestran ms; la ejecución y separación de tareas continúan en µs donde esa escala es más legible. Si HELLO incluye `tickPeriodMs` o un evento trae `tickCount`, la tabla deriva/muestra el tick y la fase de ciclo; con el firmware actual, que no envía ese metadato, aparece `—` sin suponer que un tick dura 1 ms.
+
+`telemetryPresentation.js` concentra etiquetas y detalles: `FSM Transition`, `Motor Command`, `Sensor Snapshot` y demás se muestran en lenguaje legible, mientras Raw conserva el JSON original. `getStateDisplayName()` prefiere el catálogo de nombres y pasos de la receta abierta en el editor; la consola lo solicita por `BroadcastChannel`. Después usa `StateMetadata` de `FSMDefinitions.h`, el nombre recibido por telemetría y, por último, el ID formateado. La identidad estable `StateId` no cambia. Las tablas **Chronological Events** y **Unified Telemetry Terminal** tienen encabezados fijos y columnas alineadas; la primera muestra Tiempo, Δt, Tick, Tipo, Estado/Origen y Detalles. La tabla omite en Detalles el origen ya presente en su columna; el terminal mantiene la descripción completa para que cada línea se entienda por sí sola. **Key events** es el filtro inicial y deja fuera muestras periódicas; Δt puede medirse respecto al evento anterior filtrado o a un evento seleccionado como marcador A. Los eventos de transición tienen mayor énfasis visual que `FSM Status` y `Sensor Snapshot`. El inspector FSM calcula Sensor→FSM→motor con los bordes temporalmente más próximos dentro de 50 ms y lo etiqueta como correlación, no como causalidad demostrada.
+
+Cada gráfica multiserie y cada fila del analizador lógico/línea de estados tiene controles **All**, **None**, **Reset** y selección por curva. La visibilidad se guarda en `localStorage` aparte de la ventana temporal; ocultar una curva no detiene su adquisición, historial ni grabación. Los tooltips enumeran únicamente curvas visibles y usan tiempo de dispositivo en ms.
+
+`telemetryStore.js` mantiene un anillo de 65.536 eventos y 1.200 líneas de terminal, con contadores de sobrescritura del navegador. Las gráficas usan `us` del productor; la recepción y el almacenamiento ocurren en cada paquete, mientras el repintado está limitado a aproximadamente 20 FPS. La grabación explícita tiene un anillo propio de 250.000 eventos y muestra sus sobrescrituras. Capture permite grabar, detener, limpiar, exportar NDJSON y reproducir localmente sin enviar comandos al robot. Las prioridades/candidatos de transición, el progreso del filtro de siete muestras, RTT, ocupación de colas y overruns se indican como no disponibles cuando el protocolo actual no los publica; la UI no inventa valores.
+
+`telemetryWindowBridge.js` usa `BroadcastChannel("mbaretech-telemetry")` entre ventanas. La consola publica HELLO, START, cambios de IR/línea, transición FSM/SubFSM, errores y cambios de estado/paso; nunca reenvía las muestras periódicas de ADC, IMU o timing al editor. Cada segundo publica un `console_status` pequeño con conexión, máquina y estado del grafo para que un editor reabierto se sincronice. Si la consola se cierra, envía desconexión; el editor también detecta la ausencia del estado periódico tras 3,5 s. El editor no abre WebSocket/BLE/Serial. El grafo resalta estado actual/anterior, paso activo, última arista y condiciones conocidas verdaderas/falsas mediante clases visuales, sin alterar el modelo editable.
+
+`hello.machine` debe coincidir con `MachineRecipe.name` de la receta abierta. Si difiere, o aparece un StateId desconocido, el grafo en vivo se desactiva con aviso explícito y la consola continúa registrando mensajes. **Disconnect** cierra el transporte sin cambiar la receta. El historial y la exportación NDJSON permiten inspeccionar y reproducir capturas localmente; los disparos con historial previo/posterior quedan para una extensión futura. La consola admite los comandos acotados de parámetros y START descritos al final; no admite comandos motores directos ni cambios de topología.
+
+Verificación de esta arquitectura: compilaron las selecciones de receta, combate, Serial sin WiFi, BLE y gyro opcional; se restauró `buildConfig.h` tras cada variante. Pasaron las pruebas Node de telemetría, puente entre ventanas, URL, backend/editor, servidor local y dashboard Mock/anillos/métricas; también pasó la prueba del servidor Python usando el intérprete explícito de PlatformIO. La consola se abrió en el navegador local, se conectó al transporte Mock y mostró eventos START, IR, línea, FSM y motor con tiempos y diferencias en ms; la vista Signals presentó los controles de visibilidad por curva. Los tres servidores locales (Node, Python y PowerShell) incluyen las rutas de la consola; no se ejercitó el servidor PowerShell. Wokwi emitió `hello`, `sensors`, `fsm_status`, `motor` y una transición TIMER real; el estado y destino llegaron con los tokens estables `MOTOR_SEQUENCE` y `MOTOR_SEQUENCE_1`, con `seq` y `us`. El test C++ del protocolo y del aislamiento de fan-out compiló, pero Windows Device Guard bloqueó la ejecución del `.exe`; no se eludió esa política. La suite host antigua de recetas sigue fallando porque el archivo actual `fsm_recipe_test.h` declara el namespace y los estados de TURN_CALIBRATION mientras la suite espera la receta TEST histórica. No se probó en un ESP32 físico ni se ejercitaron BLE y Serial con hardware real.
 ## Configuración única de compilación
 
 `platformio.ini` contiene únicamente `[env:firmware]`, la sección que PlatformIO necesita para describir la placa y el toolchain. Ya no hay entornos de combate, sensores o recetas ni se utiliza `-e` para cambiar de programa. El único comando de compilación, desde la raíz, es:
@@ -22,24 +132,24 @@ Dentro de `Mbaretech2`, usar `pio run`. Para cargar, usar `pio run -t upload`; p
 
 **Editar [`include/buildConfig.h`](../include/buildConfig.h)** para seleccionar placa, programa, adquisición, motores, comunicaciones y receta. PlatformIO define únicamente `MBARETECH_USE_BUILD_CONFIG=1`; `firmwareConfig.h` carga entonces el header antes de validar los switches. La inclusión normal permite detectar cambios como dependencias y recompilar las fuentes afectadas. `firmwareConfig.h` conserva comprobaciones de dependencias y defaults para compilaciones host; no es el archivo de selección cotidiana. `fsm/FSMDefinitions.h` sigue siendo el catálogo y calibración del runtime genérico, sin duplicar selección de programas.
 
-La configuración guardada conserva el comportamiento anterior por defecto: `MBARETECH_2`, `ENABLE_GYRO_TEST=1`, `ENABLE_GYRO=1` y `ENABLE_SERIAL=1`; los demás servicios y motores están deshabilitados. No se cambió la estrategia de combate.
+La configuración guardada selecciona `MBARETECH_2`, receta STATE_TEST (`FSM_ACTIVE_RECIPE_STATE_TEST`), tarea de adquisición, Serial y telemetría WiFi; grupos línea/IR y logging deshabilitados. `ENABLE_MOTORS=0` y `FORCE_START_ACTIVE=0`: ensayo sin salida física. No se cambió la estrategia de combate.
 
 Para cambiar de programa, poner primero todos los selectores exclusivos en 0, luego habilitar el elegido y sus dependencias. Los nombres de esta tabla son las partes después de `ENABLE_`; los valores indicados se ponen a 1 en el header. Los no indicados quedan a 0 salvo opciones compatibles elegidas explícitamente.
 
 | Uso | Switches activos |
 | --- | --- |
-| Gyro aislado (actual) | `GYRO_TEST`, `GYRO`, `SERIAL` |
+| Gyro aislado | `GYRO_TEST`, `GYRO`, `SERIAL` |
 | Combate existente | `FSM`, `SENSOR_TASK`, `LINE_SENSORS`, `IR_SENSORS`, `DIP_SWITCHES`, `MOTORS`, `TURN_CANCEL`, `SERIAL`, `LOGGING`, `BLE` |
 | Solo sensores | `SENSOR_TASK`, `LINE_SENSORS`, `IR_SENSORS`, `DIP_SWITCHES`, `GYRO`, `SERIAL`, `LOGGING`, `BLE` |
 | Receta de motor o giro | `RECIPE_FSM`, `SENSOR_TASK`, `LINE_SENSORS`, `IR_SENSORS`, `DIP_SWITCHES`, `MOTORS`, `SERIAL`, `LOGGING` |
 
-En el bloque de recetas de `buildConfig.h`, dejar un solo `FSM_ACTIVE_RECIPE_*` sin comentar: MOTOR_TEST o TURN_CALIBRATION. Los defines se seleccionan por presencia, no con valor 0. No combinar ENABLE_FSM y ENABLE_RECIPE_FSM. El diagnóstico antiguo ENABLE_TURN_CALIBRATION sigue sin estar soportado; el giro genérico se selecciona como receta.
+En el bloque de recetas de `buildConfig.h`, dejar un solo `FSM_ACTIVE_RECIPE_*` sin comentar: TEST, TURN_CALIBRATION, EDITOR_TEST o STATE_TEST. Los defines se seleccionan por presencia, no con valor 0. No combinar ENABLE_FSM y ENABLE_RECIPE_FSM. El diagnóstico antiguo ENABLE_TURN_CALIBRATION sigue sin estar soportado; el giro genérico se selecciona como receta.
 
 Variantes sin entornos adicionales: para un ensayo sin salida física poner `ENABLE_MOTORS=0`; para agregar yaw al combate poner `ENABLE_GYRO=1` sin activar GYRO_TEST; para combate sin comunicaciones poner SERIAL/BLE/LOGGING a 0. Mantener Serial o logging en el runtime genérico para informar errores. `firmwareConfig.h` rechaza combinaciones incompatibles; `buildConfig.h` exige exactamente una placa.
 
 Las pruebas host conservan sus flags sintéticos y no cargan automáticamente `buildConfig.h`, evitando que la selección física actual active motores o diagnósticos dentro de una prueba. Para verificar otras configuraciones reales, editar el mismo header y ejecutar el mismo comando; no crear nuevos entornos.
 
-Verificación de la unificación: el mismo target `firmware` compiló correctamente con las configuraciones de receta de motor, receta de giro, combate existente y gyro aislado. Se restauró exactamente el header guardado después de las comprobaciones y el binario final corresponde al gyro por defecto. Las dos variantes de las pruebas host de recetas también compilaron sin cargar la configuración física. No se cargó firmware en la placa.
+Verificación de la unificación: el mismo target `firmware` compiló correctamente con las configuraciones de receta de motor, receta de giro, combate existente y gyro aislado. Se restauró exactamente el header guardado después de las comprobaciones y en aquella verificación el binario final correspondía al gyro. Las dos variantes de las pruebas host de recetas también compilaron sin cargar la configuración física. No se cargó firmware en la placa.
 
 ## Runtime genérico: definiciones, condiciones y recetas
 
@@ -49,7 +159,7 @@ Verificación de la unificación: el mismo target `firmware` compiló correctame
 flowchart TD
     HW[GPIO / ADC / filtros] --> SNAP[SensorSnapshot]
     START[Latch START + hora de observación] --> SNAP
-    SNAP --> TASK[Ciclo de vida: START y frescura]
+    SNAP --> TASK[Ciclo de vida: validez y frescura]
     TASK --> MACHINE[fsm::StateMachine]
     MACHINE --> STATE[fsm::State]
     SNAP --> CONDITION[evaluateCondition]
@@ -57,6 +167,8 @@ flowchart TD
     RECIPE[Receta: topología const] --> MACHINE
     DEFINITIONS[FSMDefinitions: catálogo y ajustes] --> RECIPE
     STATE --> DRIVE[fsm::Drive]
+    START --> PERMISSION[effectiveStartActive / override]
+    PERMISSION --> DRIVE
     DRIVE --> MOTORS[Motor izquierdo / derecho]
     STATE --> QUEUE[Eventos acotados sin espera]
     QUEUE --> LOG[Tarea de comunicaciones: Serial / BLE]
@@ -120,9 +232,10 @@ También comprueba nombre de máquina, estado inicial, IDs registrados y únicos
 
 | API | Contrato |
 | --- | --- |
-| `fsm::Drive(Motor&, Motor&)` | Conserva referencias a los drivers existentes. `begin()` los inicializa y frena. |
-| `Drive::apply(const MotorCommand&)` | Convierte `left_pct/right_pct` firmados: positivo avanza, negativo retrocede, cero frena. Limita al rango central y amplía a `int` antes de negar, incluso para -128. |
-| `Drive::stop()` | Frena ambas ruedas; respeta `ENABLE_MOTORS`. |
+| `fsm::Drive(Motor&, Motor&)` | Conserva referencias a los drivers existentes. `begin()` los inicializa, borra el comando y deshabilita movimiento. |
+| `Drive::apply(const MotorCommand&)` | Retiene el comando incluso sin permiso; solo lo aplica físicamente con permiso. Convierte `left_pct/right_pct` firmados: positivo avanza, negativo retrocede, cero frena. Limita al rango central y amplía a `int` antes de negar, incluso para -128. |
+| `Drive::setMotionEnabled(bool)` | false frena conservando el comando solicitado; true lo aplica inmediatamente sin transición ni nueva entrada de estado. |
+| `Drive::stop()` | Frena y borra el comando solicitado; conserva el permiso. Toda salida respeta `ENABLE_MOTORS`. |
 | `evaluateCondition(fsm_defs::ConditionId, const SensorSnapshot&)` | Resuelve una condición: START, IR1..IR7, línea izquierda/derecha. `NONE` es false. No evalúa AND/OR ni lee hardware. |
 | `validateRecipe(const MachineRecipe&)` | Devuelve `nullptr` o el primer mensaje de error estático. Sin IO ni asignación de memoria. |
 | `StateMachine(const MachineRecipe&, Drive&, TransitionObserver = nullptr)` | Conserva referencias y callback opcional; no inicia movimiento. |
@@ -146,34 +259,86 @@ Los temporizadores internos usan edad del paso; los superiores, edad del estado.
 
 ### START y los dos dominios temporales del snapshot
 
-**START pertenece al ciclo de vida de la tarea**, que comprueba `canRunRecipe(snapshot, nowMs)` antes de iniciar/actualizar: START activo, muestra válida y adquisición de edad <= 50 ms. Repite la comprobación después de actualizar. Si falla, frena; cuando se recupera, reinicia desde el estado inicial. Se conserva el comportamiento de parada de CombatFsm sin tocar su código.
+**Antes del primer comando remoto, START físico conserva la política histórica de permiso de motores:** no pausa ni reinicia la FSM de recetas. `isControlDataValid(snapshot, nowMs)` comprueba `valid` y edad de adquisición <= 50 ms, con resta unsigned para tolerar rollover. Con datos sanos continúan adquisición, condiciones, transiciones, timers, SubFSM y logging aunque el pin START sea 0.
 
-Las recetas normales ya no incluyen una condición START adicional. Su IDLE usa una transición TIMER de 0 ms hacia la secuencia, una vez que la tarea ha autorizado begin. Esto conserva el orden y los tiempos de los ejemplos. `START_ACTIVE` sigue disponible para recetas que prueben expresamente esa señal; la parada global no se deshabilita.
+`Drive::apply()` conserva el último comando solicitado. En modo de pin físico, al caer START frena ambas ruedas conservando el comando y los tiempos del estado; al subir aplica el comando retenido. Por ejemplo, forward 400 ms → stop 200 ms → backward 400 ms → DONE termina incluso con el pin START bajo. El pin no vuelve a ejecutar una receta que ya alcanzó DONE. Los logs describen comandos solicitados, no movimiento físico.
+
+`updateRecipeControl()` comprueba salud antes de habilitar la salida, inicia la FSM al disponer de datos sanos y la actualiza. `refreshRecipeMotorPermission()` se repite con un snapshot recién leído después de evaluar para detectar una caída de START. Datos inválidos/viejos deshabilitan salida y llaman `machine.stop()`, que borra también el comando; la recuperación comienza desde el estado inicial. En modo remoto, un comando `start_set` con `active:false` también deshabilita la salida, llama `machine.stop()` y mantiene la máquina detenida; `active:true` inicia una nueva ejecución desde el estado inicial cuando el snapshot es válido y reciente. El cambio se aplica en el siguiente ciclo de control, no es un corte PWM atómico por ISR.
+
+**DEBUG ONLY — `FORCE_START_ACTIVE` en `include/buildConfig.h`**, validado como 0/1 en `firmwareConfig.h`: antes de un comando remoto, 0 usa START físico y 1 fuerza solamente el permiso de Drive mediante `effectiveStartActive()`. Un comando remoto tiene prioridad incluso sobre este override. No modifica ISR ni `startSignal`. Con `ENABLE_MOTORS=1` y override 1 el robot puede moverse inmediatamente después de arrancar con datos válidos; con `ENABLE_MOTORS=0` no hay escrituras GPIO/PWM de motores. La configuración guardada deja ambos switches en 0.
+
+Las recetas normales no contienen transiciones START: IDLE usa TIMER 0 hacia la secuencia. `ConditionId::START_ACTIVE` observa el valor lógico del snapshot (físico al inicio, remoto tras el primer comando). El latch físico de la ISR no se modifica. Estas reglas corresponden al runtime genérico; `CombatFsm` conserva su política previa sin cambios.
 
 `SensorSnapshot` es un tipo sin headers de hardware. Conserva IR normalizados en `ir[0..6]`, línea filtrada en `line[0..1]`, ADC crudo, DIP A..E y dos dominios explícitos:
 
 | Campo | Dominio |
 | --- | --- |
 | `sampledAtMs`, `valid` | Adquisición publicada de línea/IR/DIP. GPIO y ADC se leen secuencialmente; no implican simultaneidad física. |
-| `startActive`, `startObservedAtMs` | Latch de START leído al recuperar el snapshot, y `millis()` inmediatamente después de observarlo. |
+| `startActive`, `startObservedAtMs` | START lógico observado al recuperar el snapshot (pin físico o override remoto), y `millis()` inmediatamente después. |
 
 Se conserva la lectura inmediata de START para no retrasar la parada hasta la siguiente adquisición. `readSensorSnapshot()` copia la publicación bajo sección crítica, luego lee el latch y su hora; no vuelve a adquirir GPIO/ADC. Por eso START puede ser más reciente que los sensores, y su hora no sustituye `sampledAtMs` en el chequeo de frescura. Una copia anterior no se actualiza por otro consumidor. No es una instantánea eléctrica simultánea ni una parada atómica con PWM. DIP conserva su interpretación y ausencia de debounce actuales.
+
+### Verificación del permiso START
+
+PlatformIO compiló `ENABLE_RECIPE_FSM=1` con motores habilitados y `FORCE_START_ACTIVE=0` y `1`, usando el único target `firmware`. También compiló la configuración final restaurada: MOTOR_TEST, `ENABLE_MOTORS=0`, `FORCE_START_ACTIVE=0`. No se cargó firmware ni se verificó hardware físico.
+
+`python Mbaretech2/test/recipes/run.py --compile-only` compiló ocho variantes: ambas recetas con cada override y el driver Motor real con cada combinación de motores/override. Las pruebas agregadas cubren avance de SubFSM, condiciones y eventos con START bajo, reanudación inmediata del comando retenido sin transición, freno sin reinicio de timers, DONE sin rearranque, recuperación por salud y ausencia de pulso con muestra vieja. Los sustitutos GPIO/LEDC comprueban duty/dirección y ausencia de toda escritura con motores deshabilitados. Windows Device Guard bloqueó la ejecución del primer binario host: las aserciones nuevas están compiladas pero no verificadas por ejecución. No se intentó eludir esa política.
 
 ### Logging genérico
 
 La depuración no depende del enum ESTADO legado ni de activar el menú de registro. `fsm_defs::runtime::TRANSITION_LOGGING` la habilita; se puede desactivar en la configuración central. Se registra cada transición superior e interna, incluyendo STEP_COMPLETE, sin mensajes repetidos por mantener un estado. Inicio/parada del ciclo de vida no se presentan como transiciones inventadas.
 
-Ejemplo de evento de paso:
+El selector `FSM_CONSOLE_COMPACT` de `include/buildConfig.h` se valida como 0/1 en `firmwareConfig.h`. El build guardado usa 1; las compilaciones host sin selección explícita conservan 0. Solo cambia la presentación final de `formatTransition()`: no cambia eventos, timestamps, orden, cola, timers, condiciones, START ni comandos.
+
+**Formato estructurado (`FSM_CONSOLE_COMPACT=0`)**: `formatStructuredTransition()` conserva exactamente el formato anterior, incluidos separadores, campos y salto de línea. Ejemplo de evento de paso:
 
 ```text
 FSM,TURN_CALIBRATION,AT_MS=350,SCOPE=STEP,STATE=TURN_SEQUENCE,CONDITION=TIMER,DETAIL=350_ms,ELAPSED_MS=350,NEXT=TURN_SEQUENCE,MOTOR_L=-40,MOTOR_R=40,STEP=0,NEXT_STEP=1
 ```
 
-Incluye máquina, hora, ámbito, estado actual, tipo de condición, IDs de condiciones o temporizador, destino, tiempo transcurrido, comando de origen y paso. Expresiones SENSOR muestran sus IDs/operadores en orden; su semántica sigue siendo el plegado de izquierda a derecha. En eventos STEP, NEXT_STEP=-1 significa STEP_COMPLETE; en STATE significa salida superior. STEP=-1 identifica un estado básico. El tiempo es del paso para transiciones internas y del estado para salidas superiores.
+Incluye máquina, hora, ámbito, estado actual, tipo de condición, nombres de condiciones o temporizador, destino, tiempo transcurrido, comando de origen y paso. Expresiones SENSOR muestran sus nombres/operadores en orden; su semántica sigue siendo el plegado de izquierda a derecha. En eventos STEP, NEXT_STEP=-1 significa STEP_COMPLETE; en STATE significa salida superior. STEP=-1 identifica un estado básico. El tiempo es del paso para transiciones internas y del estado para salidas superiores.
 
-El control solo copia eventos a una cola estática protegida de 32 posiciones, sin espera ni heap. Si está llena descarta el evento nuevo y cuenta pérdidas. Comunicaciones drena como máximo cuatro por vuelta y usa el `sendData()` existente para Serial/BLE; cuando solo hay Serial sin servicio de logging, el loop Arduino drena la misma cola. Siempre hay un solo consumidor. Formato/String/transporte quedan fuera de la tarea de control. Se informa `FSM_LOG_DROPPED,cantidad`; las líneas/expresiones demasiado largas generan `FSM_LOG_TRUNCATED` y un marcador cuando corresponde. BLE conserva su fragmentación y entrega no garantizada. Estos eventos son independientes del canal ESTADO del menú legado.
+**Consola compacta (`FSM_CONSOLE_COMPACT=1`)**: `formatCompactTransition()` muestra una línea por evento, con nombres del catálogo y timestamp original en ms (ancho mínimo 4, sin recortar números mayores):
 
-Una receta inválida sigue emitiendo `FSM_RECIPE_ERROR,mensaje` por el mecanismo existente, dejando motores detenidos y terminando la tarea. Los mensajes de error pertenecen a la ruta de arranque/fallo.
+```text
+[FSM]    80 | IDLE -> MOTOR_SEQUENCE | TIMER 0ms
+[STEP]  480 | MOTOR_SEQUENCE 0->1 | 400ms | L=30 R=30
+[STEP]  680 | MOTOR_SEQUENCE 1->2 | 200ms | L=0 R=0
+[STEP] 1080 | MOTOR_SEQUENCE 2->END | 400ms | L=-30 R=-30
+[FSM]  1080 | MOTOR_SEQUENCE -> DONE | COMPLETE
+```
+
+STATE usa `[FSM]` y `origen -> destino`; STEP usa `[STEP]`, estado y `paso->destino`. `NEXT_STEP=-1` se presenta como `END`. TIMER muestra su duración configurada (no sustituye timestamps ni modifica tiempos), COMPLETION muestra `COMPLETE`, y SENSOR muestra nombres unidos por ` AND ` / ` OR `, en el orden de evaluación de izquierda a derecha. Por ejemplo:
+
+```text
+[FSM]   520 | IDLE -> MOTOR_SEQUENCE | IR3_DETECTED OR IR4_DETECTED
+[STEP]  730 | TURN_SEQUENCE 1->2 | LINE_LEFT_DETECTED | L=-40 R=40
+```
+
+Esta sección describe la salida anterior cuando `ENABLE_TELEMETRY=0`; con telemetría canónica activa, los tres transportes emiten NDJSON y `FSM_CONSOLE_COMPACT` no cambia ese protocolo. Solo STEP incluye `L`/`R`: son el comando solicitado del paso de origen, no la velocidad física ni el comando del paso destino. El formato compacto omite máquina, elapsed y campos redundantes; para analizadores que requieren esos datos usar 0. Ambos formatos conservan buffers fijos, `snprintf` y retorno false por truncación/error, sin asignaciones dinámicas en el formateador. Si se habilita logging/BLE sin telemetría canónica, el mismo formato seleccionado llega al transporte existente. Mensajes `FSM_LOG_TRUNCATED`, `FSM_LOG_DROPPED` y `FSM_RECIPE_ERROR` conservan su formato en esa ruta anterior.
+
+Configuración recomendada para Wokwi/depuración por Serial, editando el mismo `buildConfig.h` y compilando con `pio run`:
+
+```cpp
+#define ENABLE_RECIPE_FSM         1
+#define ENABLE_MOTORS             0
+#define ENABLE_SENSOR_TASK        1
+#define ENABLE_SERIAL             1
+#define ENABLE_BLE                0
+#define ENABLE_LOGGING            0
+#define ENABLE_DEBUG              0
+#define ENABLE_TASK_TIMING        0
+#define ENABLE_TELEMETRY          0
+#define FSM_CONSOLE_COMPACT       1
+```
+
+Mantener los otros programas exclusivos desactivados y seleccionar los grupos de sensores necesarios para la receta. Con logging desactivado el loop Arduino sigue drenando eventos hacia Serial. El cambio de presentación no habilita movimiento.
+
+Verificación de consola: ambos valores compilaron en PlatformIO para el único target `firmware`; se restauró la configuración guardada con compacto 1 y motores 0. Pasaron las pruebas host de ambas recetas con ambos formatos y START override 0, incluidas comparaciones exactas de TIMER/SENSOR/COMPLETION, STATE/STEP/END, límites/truncación y ausencia de nuevas asignaciones. Las ocho variantes de runtime (dos recetas × dos formatos × dos overrides) y cuatro variantes del driver compilaron. Device Guard bloqueó el test separado de driver con motores habilitados, por lo que la ejecución completa de esa matriz no terminó; no se eludió la política. No se cargó firmware.
+
+Con `ENABLE_TELEMETRY=0`, el control solo copia eventos a una cola estática protegida de 32 posiciones, sin espera ni heap. Si está llena descarta el evento nuevo y cuenta pérdidas. Comunicaciones drena como máximo cuatro por vuelta y usa el `sendData()` existente para Serial/BLE; cuando solo hay Serial sin servicio de logging, el loop Arduino drena la misma cola. Siempre hay un solo consumidor. Formato/String/transporte quedan fuera de la tarea de control. Se informa `FSM_LOG_DROPPED,cantidad`; las líneas/expresiones demasiado largas generan `FSM_LOG_TRUNCATED` y un marcador cuando corresponde. BLE conserva su fragmentación y entrega no garantizada. Estos eventos son independientes del canal ESTADO del menú legado.
+
+Una receta inválida deja motores detenidos y termina la tarea. Con telemetría canónica emite `error` en los tres transportes; sin ella conserva `FSM_RECIPE_ERROR,mensaje` por el mecanismo anterior. Los mensajes de error pertenecen a la ruta de arranque/fallo.
 
 ### Recetas, compilación y combate
 
@@ -181,7 +346,7 @@ Seleccionar exactamente un define por presencia en `fsm_recipe_select.h`:
 
 | Define | Comportamiento |
 | --- | --- |
-| `FSM_ACTIVE_RECIPE_MOTOR_TEST` | Avance 30%/400 ms, parada 200 ms, retroceso 30%/400 ms y DONE. |
+| `FSM_ACTIVE_RECIPE_TEST` | Avance 30%/400 ms, parada 200 ms, retroceso 30%/400 ms y DONE. |
 | `FSM_ACTIVE_RECIPE_TURN_CALIBRATION` | Giro izquierdo 40%/350 ms, parada 500 ms, giro derecho 40%/350 ms y DONE. |
 | `FSM_ACTIVE_RECIPE_COMBAT` | Error explícito: aún no hay traducción fiel del combate. |
 
@@ -351,7 +516,7 @@ getYaw() usa atan2(2(xy-wz), w²+x²-y²-z²), equivalente a la fórmula anterio
 
 Se restauraron los hooks de adquisición de línea y transiciones, el inicio Serial controlado por `ENABLE_SERIAL` y la inicialización IMU bajo demanda. `bluetoothComm.h` contiene solo declaraciones: la implementación duplicada anterior impedía compilar los modos BLE. Los modos de prueba excluyentes producen un error al combinarse; `ENABLE_LEGACY_MOVEMENTS=1` selecciona únicamente la implementación antigua de movimientos.
 
-La configuración guardada en `include/buildConfig.h` sigue siendo la prueba aislada de gyro. Las pruebas host de registro se ejecutan con `python Mbaretech2/test/logging/run.py`. `python Mbaretech2/test/hardware/run.py` compila los módulos reales de motor y línea con sustitutos para comprobar duty cero, límites, freno, detección sostenida y publicación ADC; Windows Device Guard bloqueó la ejecución de este nuevo binario y la repetición final del binario de registro. Una ejecución anterior de las pruebas de registro pasó. Se verificaron compilaciones de gyro, sensores, combate y ambas rutas de movimientos para MBARETECH_2. La validación física de motores, ADC, radio y DMP sigue pendiente.
+La configuración guardada en `include/buildConfig.h` es la receta STATE_TEST sin motores físicos. Las pruebas host de registro se ejecutan con `python Mbaretech2/test/logging/run.py`. `python Mbaretech2/test/hardware/run.py` compila los módulos reales de motor y línea con sustitutos para comprobar duty cero, límites, freno, detección sostenida y publicación ADC; Windows Device Guard bloqueó la ejecución de este nuevo binario y la repetición final del binario de registro. Una ejecución anterior de las pruebas de registro pasó. Se verificaron compilaciones de gyro, sensores, combate y ambas rutas de movimientos para MBARETECH_2. La validación física de motores, ADC, radio y DMP sigue pendiente.
 
 ## Arquitectura de tareas y FSM no bloqueante
 
@@ -377,7 +542,7 @@ flowchart LR
 - Cambios intencionales: borde tiene prioridad sobre todos los objetivos y maniobras; el retroceso no reinicia su tiempo con cada muestra y continúa mientras detecta borde. `ENABLE_TURN_CANCEL=1` conserva la transición al objetivo detectado. Las correcciones durante avance se recalculan con cada snapshot. Snake y el pulso Turkish son fases temporizadas, interrumpibles por parada o borde. `ENABLE_MOTORS=1` habilita todos los comandos de motor. Los antiguos `FORWARDON` y `ESTADOS_ORDEN` se rechazan; consultar la migración en control.md.
 - `ENABLE_MOVEMENT_TEST`, con o sin `ENABLE_LEGACY_MOVEMENTS=1`, conserva las pruebas anteriores y sus esperas. No se ejecuta junto con el nuevo combate. IMU permanece en su tarea existente, porque la calibración es bloqueante.
 
-Seleccionar combate o solo sensores en `include/buildConfig.h` y compilar con `pio run -d Mbaretech2`. La configuración guardada continúa siendo gyro; no se cargó firmware en una placa.
+Seleccionar combate o solo sensores en `include/buildConfig.h` y compilar con `pio run -d Mbaretech2`. La configuración guardada es STATE_TEST sin motores físicos; no se cargó firmware en una placa.
 
 Pruebas del controlador: `python Mbaretech2/test/control/run.py`. Compilan el código real y cubren ambos modelos, 16 aperturas, parada en fases distintas, datos inválidos/antiguos, prioridad de borde, cancelación por objetivo, secuencias L/R, Turkish, snake y desbordamiento temporal. También incluyen publicación de snapshot, polaridad, orden DIP y fallo de creación de tarea con sustitutos de hardware. Las pruebas de controlador pasaron para ambos modelos; Windows Device Guard bloqueó la ejecución de la prueba adicional de adquisición. Los resultados host no verifican temporización, señal eléctrica ni dinámica física del robot.
 
@@ -492,7 +657,7 @@ SensorSnapshot readSensorSnapshot();
 | --- | --- |
 | `startSensorTask()` | Creates `sensorRead` with stack size 3072 and priority 2. Returns `false` if task creation fails; returns `true` if created or already running. If line, IR, DIP, and the recipe runtime are all disabled, returns `true` without creating a task. Recipe modes still publish acquisition timestamps when no physical channels are enabled. Call during startup after configuring enabled peripherals. |
 | `sensorReadTask(parameter)` | FreeRTOS entry point; ignores its argument and loops indefinitely. Reads enabled channels, applies line filters once per acquisition, and publishes a complete snapshot. Normally started through `startSensorTask()`, not called directly. |
-| `readSensorSnapshot()` | Copies the latest published snapshot under a short critical section, then refreshes `startActive` from the ISR latch. Does not trigger acquisition or wait for a new sample. Before first publication, acquisition fields retain their defaults but START still reflects the latch. |
+| `readSensorSnapshot()` | Copies the latest published snapshot under a short critical section, then refreshes logical `startActive` from the ISR latch or remote command. Does not trigger acquisition or wait for a new sample. Before first publication, acquisition fields retain their defaults but START still reflects the selected source. |
 
 Acquisition runs every `SENSOR_PERIOD_TICKS`, an alias of `SENSOR_READ_PERIOD_TICKS` (default **1 FreeRTOS tick**, not necessarily 1 ms). After an overrun it yields a full period instead of catching up in a burst. GPIO and ADC reads occur sequentially; a consistent published copy does not imply simultaneous physical sampling.
 
@@ -502,7 +667,7 @@ Acquisition runs every `SENSOR_PERIOD_TICKS`, an alias of `SENSOR_READ_PERIOD_TI
 | `line[0]`, `line[1]` | Filtered front-left/front-right edge detections. `true` after seven consecutive readings at or below `THRESHOLD`. |
 | `ir[7]` | Normalized opponent detections; `true` means detected. Index using `Sensor` below. |
 | `dip[5]` | Raw digital levels in A, B, C, D, E order; no polarity inversion or debounce. Index using `DipIndex`. |
-| `startActive`, `startObservedAtMs` | START interrupt latch at retrieval and its observation time in milliseconds; a separate domain from acquisition timestamp/validity. No additional GPIO read. |
+| `startActive`, `startObservedAtMs`, `startRemoteControlled` | Logical START at retrieval, its observation time in milliseconds, and whether a remote command currently owns it; a separate domain from acquisition timestamp/validity. No additional GPIO read. |
 | `sampledAtMs` | `millis()` captured after acquisition, in milliseconds. |
 | `valid` | Set on publication; when line acquisition is enabled, requires both raw line readings to be nonnegative. Does not verify IR/DIP connectivity, freshness, or whether every channel is enabled. |
 
@@ -645,3 +810,50 @@ TaskTiming readTaskTiming(TimedTask task);
 `recordTaskTiming()` updates execution/start-gap maxima since boot and increments `overrunCount` when execution duration is at least the configured task period. Durations are microseconds. `readTaskTiming()` returns a protected copy; it does not reset counters. Acquisition/control instrument their own cycles when enabled.
 
 This document reflects source contracts. Physical motor direction, sensor thresholds, and timing still require validation on the robot.
+
+### Live runtime recipe parameters
+
+With `ENABLE_RECIPE_FSM=1`, `MachineRecipe` owns a counted `ParameterDefinition` table. Each definition has a stable numeric `ParameterId`, stable protocol key, name, integer type, unit, compiled default, minimum, maximum, step, and application policy. A motor's left/right field or TIMER trigger can keep its literal value or reference a definition by numeric ID; array position is never its identity. Fields without a reference are not live tunable. Existing short aggregate initializers remain literal. The recipe header remains the source of definitions, defaults and references; the MCU keeps only a bounded RAM overlay (64 parameters maximum). It never rewrites recipe flash or NVS. The legacy combat controller remains unchanged.
+
+The current `state_test` recipe declares nine parameters: IDLE duration, forward/backward speed and duration, first SubFSM step left/right speed and duration, and second step duration. Both motors of the forward and backward states share their respective speed parameter. Its first SubFSM step advances to step 1; only the second step completes the sequence. `TURN_CALIBRATION` declares its left/right step durations while its pause remains literal. Parameter validation rejects duplicate IDs/keys, missing or wrong-unit references, invalid ranges and incompatible entry policies. Motor references must remain within −100..100%; timer references must remain nonnegative. Invalid recipes refuse generic-FSM startup.
+
+`NEXT_STATE_ENTRY` values are latched on state entry and `NEXT_STEP_ENTRY` values on step entry. `NEXT_MACHINE_START` values stay at the previous machine-start value until the FSM begins again. `STOPPED_ONLY` additionally requires a stopped machine. Live Test writes and resets now require logical START OFF **and** a stopped FSM for every policy; they cannot change an executing run. A value accepted while stopped is used when START next begins the FSM and the relevant state or step is entered. A timer already in progress keeps its latched duration. `IMMEDIATE` exists in the schema for future non-FSM controls, but motor/timer references currently reject it to avoid silently applying it at the wrong time. FSM events carry the overlay revision copied at entry; reconstructing the active value also requires each parameter's application policy, especially for `NEXT_MACHINE_START`.
+
+The canonical JSON command protocol is identical over WiFi WebSocket text frames, USB Serial lines, and BLE newline-terminated fragments. Commands are processed by a separate low-priority task, not inside the control callback. The command frame limit is 1023 bytes; the queue holds eight frames. A full queue rejects a frame without changing any value. Examples:
+
+```json
+{"type":"param_schema_request"}
+{"type":"param_values_request"}
+{"type":"param_set","machine":"state_test","baseRevision":0,"transaction":17,"changes":[{"id":"forward_speed","value":35},{"id":"forward_duration","value":2200}]}
+{"type":"param_reset","machine":"state_test","baseRevision":1,"transaction":18}
+```
+
+`param_schema` and `param_values` responses are one event per declared parameter, with `index`, `count`, and `revision`; schema also reports stable numeric `parameterId` beside protocol key `id`. `param_set` accepts 1–12 changes. The common decoder/service used by WiFi, BLE and Serial checks `machine`, `baseRevision`, effective START, FSM running status, keys, duplicates, ranges, steps and policy before one atomic overlay update. If START is ON or the FSM has not stopped yet, `param_set` and `param_reset` return `start must be off` without changing RAM. An invalid member rejects the whole transaction. `param_ack` reports the transaction and result; accepted changes emit timestamped `param_changed` records, including old/new values and revision, then a fresh values snapshot. `param_reset` also requires machine and base revision and restores compiled defaults. A stale revision or different machine rejects the command. `hello` includes a boot ID and parameter revision; on restart the console/editor invalidate stale schema, values and pending edits and request the actual MCU snapshots again.
+
+In the editor's **EDIT** inspector, state fields use spaced, foldable sections inspired by an object hierarchy; users edit ordinary inputs, and the recipe itself remains C++ tables. Motor commands are editable in the state's **Motor command** section. Each motor or timer value has its **Direct value / recipe parameter** selector beside that field; a referenced value shows its recipe default and, when available, running/pending values. Parameter definitions live in the sidebar's **Recipe tuning definitions** section, keeping the node inspector focused on state behavior. **Conditions in this recipe** is foldable. Import/export and JSON graph export preserve definitions and references. In **LIVE TEST**, only the selected state panel is shown, with its motor fields and timer fields, including read-only direct/literal values; timer rows show the timer macro name and its referenced duration parameter. Shared parameters appear at every state field that references them; unused definitions have their own collapsed panel. Pending input can be staged from the recipe definition while START is OFF, even before the full MCU catalog has arrived; it does not require the whole schema/value snapshot to be clickable. Apply requires the connected MCU to confirm each pending parameter and its current value. Incoming telemetry does not replace a focused edit field. The panel's **Running** column is the accepted RAM overlay, which is latched by control on the next START; it is not an already-changing motor command. The MCU schema authorizes online ranges and writeability. Apply/reset actions are enabled only when START is OFF and the FSM has stopped; the MCU independently rejects commands during a run. If the connected MCU lacks parameters from the open recipe, Live Test warns that the firmware must be rebuilt/flashed; connecting alone cannot add recipe parameters to an older binary. **Discard Pending** clears only pending edits; **Apply while START OFF** sends one batch without changing the recipe; **Reset MCU to Recipe** sends the open recipe defaults; **Restore Compiled Defaults** uses the MCU's `param_reset`; **Use Running Values in Recipe** explicitly copies runtime values into referenced definition defaults for later export. Export Header snapshots pending values first, then accepted running values for the matching connected machine; these become recipe defaults in the generated header, with referenced motor/timer literal fallbacks updated too. The editor model remains unchanged. Export JSON and reviewed save keep the explicit recipe defaults unless **Use Running Values in Recipe** is chosen. Mock follows the same START OFF gate and command/event path.
+
+The editor graph reflects timer tuning as soon as a Pending value is staged: a referenced edge reads, for example, `backward_duration · 2400ms pending`. After the MCU accepts it, the edge reads `backward_duration · 2400ms live`; with no overlay it shows the recipe default. This changes only the SVG label, including in EDIT mode while the matching machine is connected. It does not rewrite the editor model timer macro or default duration. Export Header snapshots the displayed pending/accepted value into the generated recipe default and timer literal fallback. Direct timer literals continue to show their recipe value.
+
+The EDIT inspector also displays a referenced motor or timer's Pending value in its disabled value field; after Apply, it displays the accepted Running MCU value. The source caption still identifies the recipe parameter and its default. This is a view overlay in the editor model. Export Header includes pending/accepted values in its generated snapshot; **Use Running Values in Recipe** commits accepted values to the editable model and other export formats.
+
+Pending inputs stage on each valid edit without rebuilding the inspector when they lose focus. This matters when clicking **Apply while START OFF**: the browser first blurs the number input, then dispatches the button click. Replacing the inspector during that blur could cancel the click. After an accepted ACK, the editor clears the pending entry and shows the RAM value in the graph and EDIT inspector.
+
+**Apply while START OFF** remains clickable for a staged parameter even if its MCU schema/value row was dropped during telemetry. The editor requests a fresh snapshot and sends the queued batch once every pending ID is confirmed; after three unsuccessful retries it reports that the connected firmware did not expose those parameters. Parameter revisions never move backward when delayed schema or value packets arrive. A sent command waits for its matching ACK; if none arrives, the editor requests current values so an already applied value can be reconciled instead of leaving the UI stuck in a sending state. The MCU still validates every write and rejects it while START is active.
+
+Live Test follows graph selection: selecting a state shows only that state's motor, timer and referenced parameter rows; selecting an outgoing edge shows its source state. With no selection, it prompts for a state. Pending edits from other states stay in the batch when changing selection, and the global pending count and Apply/Discard controls still cover the entire batch.
+
+In EDIT, **Copy Config** / **Paste Config** (or Ctrl+C / Ctrl+V with no text field focused) copy state behavior between same-kind nodes. The target keeps its name, StateId and canvas position. Motor and timer parameter references, conditions, outgoing transitions and SubFSM steps are copied deeply; new step and transition UI IDs are assigned. A missing outgoing destination remains unselected and must be corrected before export validation. Larger pastes show a preview confirmation. **Undo Paste** / Ctrl+Z restores the entire prior configuration in one action; Ctrl+Y or Ctrl+Shift+Z redoes it. Input-focused keyboard shortcuts retain normal browser text behavior. Transition and SubFSM-step arrows reorder their arrays; transition order remains firmware priority order.
+
+The **Available states** sidebar lists states in the open recipe, using their current names, rather than every StateId in the firmware catalog. **Conditions in this recipe** lists only sensor conditions referenced by its transitions; the firmware catalog still supplies choices while editing a condition. To create a SubFSM, choose a state template from the current recipe and click the canvas. The editor allocates a unique StateId and creates one clean step with no copied outgoing transitions; configure its motor command, step exit and upper-level out condition before using it. The visible Motion selector has been removed because runtime drive commands come from the signed left/right motor values. Imported MotionId metadata stays in the recipe and export format. Each state and SubFSM step exposes motor values and ordered out conditions. The ↑/↓ controls on state transitions, selected condition inspector and SubFSM step conditions change evaluation priority without changing a condition itself. Live Test presents the selected state parameters in one foldable panel with recipe, running and pending values; its transport and tuning behavior is unchanged.
+
+The current tuning scope is generic recipe motor commands and timers. Line thresholds, telemetry rate, gains, and the legacy combat opening/search/escape parameters are not yet runtime-tunable. Adding them requires an explicit owner and apply policy in their respective control or sensor paths; the editor must never infer that changing a recipe default has already changed a running robot.
+
+Verification for the recipe-owned parameter change: the PlatformIO ESP32-S3 build passed, the editor parser/graph round-trip and Mock/Live Test tests passed, and the recipe host matrix compiled with `test/recipes/run.py --compile-only`. The parameter host test compiled, but Windows Device Guard blocked executing its generated `.exe`; no physical robot run was performed.
+
+The START/SubFSM/inspector update was checked with the PlatformIO ESP32-S3 build, both host compile-only suites, and the editor parser, backend, runtime tuning, Mock dashboard and transport tests. The editor backend test also covers deep copy/paste, preserved target identity, remapped SubFSM steps, atomic undo and redo, staging a pending edit without replacing its focused input, a clean SubFSM that exports, current-recipe state/condition lists, and transition priority changes. Physical START GPIO and real WiFi connection behavior still require a board test after flashing the new build.
+
+The START OFF tuning gate and expanded Live Test state panels were checked with the ESP32-S3 PlatformIO build and editor/Mock tests. Tests cover rejecting a Mock parameter write while START is ON, accepting it after OFF, keeping the edit field disabled during a run, allowing a local Pending draft while MCU metadata synchronizes, and showing a state's literal motor fields beside its referenced parameters. The editor sends state/step motor references and state timer references to Mock, which latches accepted values at START and shows changed motor commands and timer durations on the next simulated run. Mock remains a visualization simulator, not a full recipe interpreter. The physical MCU gate still needs an on-board test with START ON/OFF and a subsequent restart.
+
+The **START: ON/OFF** buttons in both the FSM Context Editor and Telemetry Console send the same `{"type":"start_set","transaction":71,"active":false}` command through the console's selected WiFi, BLE, Serial, or Mock transport. The editor button requires the connected machine name to match its open recipe; the editor never opens a second robot connection. Both buttons reflect the shared telemetry START level and wait for a timestamped `start_ack`. The next `start_changed`/sensor snapshot confirms the effective logical level. The first accepted command takes ownership from the physical START pin until MCU reset. Every accepted START command increments a control generation: the next control cycle discards the current state, timers, and retained motor command. OFF then holds the generic recipe FSM at rest; ON begins it from its initial state when sensor data is valid and fresh. The physical pin and ISR latch remain untouched; this is a logical START override. Mock follows the same command/event path and resets its simulated state index. This command is intentionally supported only by the generic recipe runtime; the legacy combat controller remains unchanged. With `ENABLE_MOTORS=1`, ON can cause physical movement, so use the buttons only while observing the robot.
+
+At boot, the active-high physical START input uses `INPUT_PULLDOWN`, so a disconnected pin reads OFF. Connecting WiFi or Mock does not assert START; Mock emits the current OFF level on connect. An OFF level from either the physical input or an accepted remote command stops the generic recipe FSM and clears its state/step timers. A later ON starts from the initial state once acquisition is fresh. The forced bench override `FORCE_START_ACTIVE=1` remains an explicit build-time exception.

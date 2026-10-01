@@ -10,7 +10,8 @@ struct SensorSnapshot {
     bool ir[7] = {};
     bool dip[5] = {};
     bool startActive = false;
-    // START is observed at readSensorSnapshot(), independently of acquisition.
+    bool startRemoteControlled = false;
+    // START lógico (pin u override remoto) se observa fuera de la adquisición.
     uint32_t startObservedAtMs = 0;
     uint32_t sampledAtMs = 0;
     bool valid = false;

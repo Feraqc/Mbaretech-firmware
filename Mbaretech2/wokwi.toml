@@ -1,0 +1,9 @@
+[wokwi]
+version = 1
+firmware = '.pio/build/firmware/firmware.bin'
+elf = '.pio/build/firmware/firmware.elf'
+
+# Wokwi VS Code forwards host traffic to the simulated ESP32 HTTP server.
+[[net.forward]]
+from = "localhost:8180"
+to = "target:80"

@@ -1,4 +1,5 @@
 #pragma once
+#include <stdint.h>
 
 // One ordered catalog keeps legacy numeric state IDs and telemetry names in sync.
 #define FIRMWARE_STATE_LIST(X) \
@@ -41,3 +42,4 @@ enum State {
 extern volatile State currentState;
 const char* stateName(State state);
 void changeState(State next);
+uint32_t combatStateElapsedMs(uint32_t nowMs);
