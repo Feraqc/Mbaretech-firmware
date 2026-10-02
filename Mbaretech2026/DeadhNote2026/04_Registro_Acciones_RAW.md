@@ -584,3 +584,13 @@ Historial detallado y automático de todos los pequeños cambios, ajustes de par
 **[2026-10-01 | 17:35 | Tarde]**
 
 * **CÓDIGO NUEVO — `src/tests/Girar45Linea.cpp` (`RUN_GIRAR45_LINEA`)**, a pedido del usuario. Mientras el killswitch esté activo, avanza a `FORWARD_80` y rebota en el borde: línea con el sensor IZQ → reversa `FORWARD_90` x 80ms + giro 45° DER (`[6]`/`[7]`+`[18]`, igual que `TURN_RIGHT_45`) y sigue; línea con el DER → reversa + giro 45° IZQ (`[3]`/`[4]`+`[18]`); **AMBOS → reversa + giro a la izquierda de 120ms fijos (`GIRO_180_MS`)**, provisorio para un ~180° todavía sin calibrar, a pedido del usuario. La línea se confirma con 3 lecturas seguidas (como en la prueba de frenado validada); solo sensores delanteros. BLE activo: reporta cada reacción y permite ajustar `[4]`/`[7]` en vivo. Arranca con los tiempos de 45° de `globals.h` (55/45ms), no con los de la autocalibración. Flag sumado a la exclusión del `setup()` de combate en `main.cpp`. `platformio.ini`: nuevo bloque activo `GIRAR 45 LINEA`; `AUTOCAL GIRO` comentado. `pio run` — compila OK. **Sin probar en hardware.**
+
+---
+**[2026-10-02 | Madrugada]**
+
+* **GIT — proyecto subido a GitHub**, a pedido del usuario: commit `9138303` en la branch `firmware_FedeAlegre` de `Feraqc/Mbaretech-firmware` (clon local en `Mbaretech2025/Mbaretech-firmware/`), como carpeta nueva `Mbaretech2025/`. Se copió `src/`, `include/`, `lib/`, `test/`, `platformio.ini`, `CLAUDE.md`, `DeadhNote2026/`, `.gitignore`, `.vscode/`. **Quedaron afuera:** `MBARETECH.pdf`, `Mbaretech2_RobochallengeBR2025.rar` (14MB), `.pio/` y el propio `Mbaretech-firmware/`. Es una **copia**: los cambios futuros en esta carpeta hay que volver a copiarlos al clon antes de cada commit. El repo propio de esta carpeta (remoto `pferreiram97/Mbaretech2`) no se tocó: GitHub responde "Repository not found".
+
+---
+**[2026-10-02 | Madrugada]**
+
+* **RENOMBRE — el proyecto pasa a llamarse `Mbaretech2026`** (antes `Mbaretech2025`, el nombre quedó del año anterior), a pedido del usuario. En GitHub (`Feraqc/Mbaretech-firmware`, branch `firmware_FedeAlegre`) la carpeta se renombró con `git mv`. Referencias actualizadas en `../CLAUDE.md` y `02_Estado_Actual.md`. Las menciones a `Mbaretech2025` en las entradas anteriores de este registro se dejan como están (historial). La carpeta local la renombra el usuario a mano (VS Code la tiene abierta).
