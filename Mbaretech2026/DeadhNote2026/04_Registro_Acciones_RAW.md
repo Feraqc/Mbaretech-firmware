@@ -594,3 +594,64 @@ Historial detallado y automático de todos los pequeños cambios, ajustes de par
 **[2026-10-02 | Madrugada]**
 
 * **RENOMBRE — el proyecto pasa a llamarse `Mbaretech2026`** (antes `Mbaretech2025`, el nombre quedó del año anterior), a pedido del usuario. En GitHub (`Feraqc/Mbaretech-firmware`, branch `firmware_FedeAlegre`) la carpeta se renombró con `git mv`. Referencias actualizadas en `../CLAUDE.md` y `02_Estado_Actual.md`. Las menciones a `Mbaretech2025` en las entradas anteriores de este registro se dejan como están (historial). La carpeta local la renombra el usuario a mano (VS Code la tiene abierta).
+
+---
+**[2026-10-02 | Tarde]**
+
+* **`platformio.ini` — vuelta a `AUTOCAL GIRO`** (±2°) a pedido del usuario, para verificar los ángulos de giro (se comentó `GIRAR 45 LINEA`, que sigue sin probar en hardware). `pio run` — compila OK. No se cargó todavía: el ESP32-S3 no estaba conectado por USB.
+
+---
+**[2026-10-02 | Tarde]**
+
+* **`platformio.ini` — activo `BORRAR ATRAS ADELANTE`** (un motor a la vez, adelante/atrás 300ms, 1s frenado, `parametros[2]`) a pedido del usuario; se comentó `AUTOCAL GIRO`. `pio run -t upload` — compilado y cargado OK en el ESP32-S3.
+
+---
+**[2026-10-04 | 22:16 | Noche]**
+
+* **VALIDADO EN HARDWARE — `borrarAtrasAdelante.cpp`**: el usuario confirma que funciona después de arreglar la parte mecánica. Sin cambios de código. Build activo sigue siendo `BORRAR ATRAS ADELANTE`.
+
+---
+**[2026-10-04 | 22:30 | Noche]**
+
+* **CÓDIGO NUEVO — `calibracion.cpp`, combo `0101` = shorts de combate**, a pedido del usuario. `SHORT_LEFT` (prioridad, igual que `BRAKE`) → `SHORT_LEFT_MOVE` exacto de `tasks.cpp`: der `forward(FORWARD_90)`, izq `forward(FORWARD_42+[18])`, 80ms; `SHORT_RIGHT` → `SHORT_RIGHT_MOVE`: der `forward(FORWARD_42)`, izq `forward(FORWARD_90+[18])`, 80ms. Hace el movimiento **una sola vez** y después ignora los sensores 10s (cooldown **único** para los dos lados, frenado). El primer movimiento no espera (flag `hizoShort`, para no quedar bloqueado los primeros 10s tras encender, cosa que sí le pasa al cooldown de `1001`, que arranca en 0). Avisa por BLE/Serial cada movimiento. Los demás sensores no mueven nada en este combo. `platformio.ini`: activo `CALIBRACION` (BLE encendido, `SKIP_BLE` comentado); se comentó `BORRAR ATRAS ADELANTE`. `pio run` — compila OK. **Sin probar en hardware.**
+
+---
+**[2026-10-04 | 22:45 | Noche]**
+
+* **CAMBIO DE CÓDIGO — `calibracion.cpp`, combo `1000` (seguir sin atacar 2)**, a pedido del usuario: se quitó el pivote 90/42 atrás (`parametros[10]`/`[11]`, que quedan sin uso en este archivo). Ahora `SHORT_LEFT`/`SHORT_RIGHT` hacen los shorts de combate de `0101` (`SHORT_LEFT_MOVE`/`SHORT_RIGHT_MOVE`: ambos adelante 90/42+`[18]`, 80ms) con cooldown **único de 5s solo para los shorts**. Durante el cooldown un SHORT se ignora y se siguen evaluando TOP→45° / SIDE→90°, que giran sin restricción. Primer short sin espera (flag). Aviso por BLE/Serial. `pio run` — compila OK. **Sin probar en hardware.** Nota: `1000` queda muy parecido a `1001` (este último: 10s por lado, sin flag).
+
+---
+**[2026-10-04 | 22:55 | Noche]**
+
+* **CAMBIO DE CÓDIGO — `calibracion.cpp`, combo `1000`: reacción a la línea**, a pedido del usuario. Si cualquiera de los dos sensores de línea **delanteros** ve blanco (prioridad sobre shorts y giros, como `LINE_RETREAT`): reversa `FORWARD_90` x 80ms (ambos motores) + giro 180° izquierda con los valores de `0110` (`[3]`, `[9]`, `[18]`), frena y espera el siguiente sensor. La línea se confirma con 3 lecturas seguidas (la lectura de arriba del loop + 2 más, 1ms entre cada una), mismo filtro que la prueba de frenado validada; el usuario no eligió filtro, se dejó el recomendado. Traseros no participan. Aviso por BLE/Serial (`LINEA IZQ/DER/AMBOS -> reversa 80ms + giro 180`). `pio run` — compila OK. **Sin probar en hardware.**
+
+---
+**[2026-10-04 | 23:00 | Noche]**
+
+* **CAMBIO DE CÓDIGO — `calibracion.cpp`, combo `1000`**: el filtro de línea pasa de 3 a **5 lecturas seguidas** en blanco (la del loop + 4 más, 1ms entre cada una), a pedido del usuario. `pio run` — compila OK.
+
+---
+**[2026-10-04 | 23:05 | Noche]**
+
+* **PENDIENTE (usuario) — calibrar el giro 180° de `0110`** (`parametros[9]` = `TURN_LEFT_180_DELAY` 150ms, nunca calibrado), porque `1000` usa ese mismo valor para su giro tras la línea. Intento de carga de `CALIBRACION` fallido: ESP32-S3 no conectado por USB.
+
+---
+**[2026-10-04 | 23:20 | Noche]**
+
+* **CAMBIO DE CÓDIGO — `calibracion.cpp`, combo `1001` = autocalibración del giro de 45° con IMU**, a pedido del usuario. Se reemplazó el viejo "seguir sin atacar 3" (shorts con cooldown de 10s por lado, que quedaba casi igual a `1000`). Se trajo de `src/tests/autoCalGiro.cpp` el mismo algoritmo y constantes (±2°, 1s entre intentos, máx 15 por lado, freno por `esp_timer`, descarte si hueco I2C > 10ms, corrección proporcional ±30%), con prefijo `AC_` en las constantes. `autocalGiro(objetivo, idxIzq, idxDer)` queda parametrizada para reusarla en 90° (`[5]`/`[8]`). Corre **una vez por activación** del killswitch (flag `autocalPendiente`, se pone en true al congelar el combo) y después repite el resumen `FIN ...` cada 2s. Los tiempos no se guardan solos en `parametros[]`. `setup()` de calibración ahora inicializa `Wire` (SDA 15/SCL 16), el `esp_timer` y detecta el IMU sin bloquear; si no responde, se reintenta cada 1s con el killswitch apagado. `autoCalGiro.cpp` queda como está. `pio run` — compila OK. **Sin probar en hardware.**
+
+---
+**[2026-10-04 | 23:30 | Noche]**
+
+* **CÓDIGO NUEVO — `calibracion.cpp`, combo `1010` = autocalibración del giro de 90°** (el de `SIDE_LEFT`/`SIDE_RIGHT`, `TURN_LEFT_90`/`TURN_RIGHT_90`), a pedido del usuario. Reusa `autocalGiro(90.0f, 5, 8)`: misma lógica que `1001` (±2°, una vez por activación, resumen `FIN 90g` cada 2s), tiempos iniciales de `parametros[5]`/`[8]` (80/70ms en `globals.h`, calibrados a ojo el 2026-09-25). Libres ahora: `1011`–`1111`. `pio run` — compila OK. **Sin probar en hardware.**
+
+---
+**[2026-10-04 | 23:50 | Noche]**
+
+* **CAMBIO DE CÓDIGO — `calibracion.cpp`, combo `0110` = giro 180° bilateral con sensor**, a pedido del usuario (antes giraba sin parar cada 300ms, sin mirar sensores). `SIDE_LEFT` → 180° a la izquierda (`[3]`/`[9]`+`[18]`, igual que `TURN_180` de `tasks.cpp`); `SIDE_RIGHT` → 180° a la derecha (`[6]`+`[18]`/`[6]`, tiempo nuevo `[19]`); nada detectado → frena. **Nuevo `parametros[19]` = `TURN_RIGHT_180_DELAY`** (150ms, igual que el izquierdo, sin calibrar; definido en los dos bloques de `globals.h`), `ARRAY_PARAMETROS_SIZE` 19 → 20. `tasks.cpp` no lo usa (combate solo tiene 180° izquierdo). Se ajusta en vivo por BLE con `19 <ms>`. `1000` sigue usando solo el 180° izquierdo. `pio run` (CALIBRACION) — compila OK. **Sin probar en hardware.**
+
+---
+**[2026-10-05 | 00:05 | Madrugada]**
+
+* **CALIBRACIÓN (usuario, a ojo por BLE en `0110`)** — 180° izquierda `[9]` = **120ms**, 180° derecha `[19]` = **125ms**. Documentado en `03` y en la tabla de parámetros de `02`. **No se tocó `globals.h`**: los `#define` siguen en 150.
+* **DOCUMENTACIÓN** — `02_Estado_Actual.md`: tabla de parámetros BLE al día (20 índices, `[19]` nuevo, valores actuales de `[4]`/`[5]`/`[7]`/`[8]` = 55/80/45/70, que estaban viejos en 60/75/60/75) y tabla de combos de calibración reescrita según el código actual (`0101`, `0110`, `1000`, `1001`, `1010`). `CLAUDE.md`: misma tabla de combos sincronizada.

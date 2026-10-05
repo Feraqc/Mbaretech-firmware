@@ -20,5 +20,6 @@ int parametros[ARRAY_PARAMETROS_SIZE] = {
     TURKISH_SPEED,//[15]:
     GIRO_U_DELAY,//[16]:
     GIRO_U_L_DELAY,//[17]:
-    CORRECT_SPEED
+    CORRECT_SPEED,//[18]: correccion rueda izquierda
+    TURN_RIGHT_180_DELAY//[19]: giro 180 a la derecha (solo calibracion.cpp 0110)
 };

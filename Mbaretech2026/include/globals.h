@@ -22,7 +22,7 @@
 
 
 // array comunicacion bluetooth
-const int ARRAY_PARAMETROS_SIZE = 19; //traje esto desde el globals
+const int ARRAY_PARAMETROS_SIZE = 20; //traje esto desde el globals
 extern int parametros[ARRAY_PARAMETROS_SIZE];
 
 
@@ -94,6 +94,7 @@ extern int parametros[ARRAY_PARAMETROS_SIZE];
 #define TURN_LEFT_90_DELAY 80 // antes 85 (recalibrado 2026-09-25, el 85 del 2026-09-23 queda superado) -- calibrado en calibracion.cpp (0011) con bateria llena //contra charizard tenia 95 y se pasaba //105
 
 #define TURN_LEFT_180_DELAY 150 // ajustar, simplemente demostrativo
+#define TURN_RIGHT_180_DELAY 150 // parametros[19], 2026-10-04: arranca igual que el IZQ, sin calibrar (solo lo usa calibracion.cpp 0110)
 
 #define TURN_RIGHT_SPEED 94
 #define LAST_RIGHT_45_TIMER 150 //110
@@ -125,6 +126,7 @@ extern int parametros[ARRAY_PARAMETROS_SIZE];
 #define TURN_LEFT_90_DELAY 70 //105
 
 #define TURN_LEFT_180_DELAY 150 // ajustar, simplemente demostrativo
+#define TURN_RIGHT_180_DELAY 150 // parametros[19], 2026-10-04: arranca igual que el IZQ, sin calibrar (solo lo usa calibracion.cpp 0110)
 
 #define TURN_RIGHT_SPEED 80
 #define LAST_RIGHT_45_TIMER 100 //110

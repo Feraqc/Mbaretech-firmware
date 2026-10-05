@@ -1,6 +1,8 @@
 #ifdef RUN_CALIBRACION
 #include "globals.h"
 #include "bluetoothComm.h"
+#include <Wire.h>
+#include <esp_timer.h>
 
 // Modo de calibracion, separado del codigo de competencia (tasks.cpp).
 // Lee los 7 IR, los 5 DIP y los sensores de linea siempre, y reporta
@@ -52,16 +54,25 @@
 //           SIDE_RIGHT gira der (parametros[6]/[8]), nada detectado frena
 //   0100 -> junta 0010+0011: los 4 sensores de giro en un combo (TOP->45,
 //           SIDE->90), nada detectado frena. Mismos parametros que arriba.
-//   0101 -> libre (liberado al unificar 45/90 en bilateral)
-//   0110 -> giro 180      (parametros[3] vel, parametros[9] delay)
+//   0101 -> shorts de combate: SHORT_LEFT/SHORT_RIGHT reproducen
+//           SHORT_LEFT_MOVE/SHORT_RIGHT_MOVE de tasks.cpp (ambos motores
+//           adelante 90/42+correccion, 80ms), UNA vez, y despues ignora
+//           los sensores 10s (cooldown unico, para los dos lados)
+//   0110 -> giro 180 bilateral: SIDE_LEFT gira 180 a la izq ([3]/[9]),
+//           SIDE_RIGHT gira 180 a la der ([6]/[19]), nada detectado frena
 //   0111 -> seguir sin atacar 1: gira para encarar (TOP/SIDE), SHORT se
 //           omite por completo (frena, ni pivote ni empuje)
-//   1000 -> seguir sin atacar 2: igual, pero SHORT dispara un pivote
-//           asimetrico 90/42 (parametros[10]/[11] delay, sin correccion)
-//   1001 -> seguir sin atacar 3: igual, pero SHORT reproduce el empuje+
-//           curva real de combate (90/42+correccion, 80ms), con cooldown
-//           de 10s por lado -- es el unico combo que empuja de verdad
-//   1010-1111 -> libres, sin asignar todavia
+//   1000 -> seguir sin atacar 2: igual, pero SHORT hace los shorts de
+//           combate de 0101 (90/42+correccion, 80ms) con cooldown unico
+//           de 5s solo para los shorts; TOP/SIDE siguen girando siempre.
+//           Linea delantera (5 lecturas) -> reversa 80ms + giro 180 de 0110
+//   1001 -> autocalibracion del giro de 45 con el IMU (de autoCalGiro.cpp):
+//           gira IZQ/DER alternado, mide el angulo con el giroscopio y
+//           corrige el tiempo (arranca de parametros[4]/[7]) hasta 45 +-2;
+//           una vez por activacion, despues repite el resumen FIN cada 2s
+//   1010 -> autocalibracion del giro de 90 (el de SIDE_LEFT/SIDE_RIGHT),
+//           igual que 1001 pero con objetivo 90 y parametros[5]/[8]
+//   1011-1111 -> libres, sin asignar todavia
 //
 // IMPORTANTE: parametros[] vive solo en RAM -- no sobrevive un reflash.
 // Los valores buenos que se encuentren acá hay que (a) volver a
@@ -86,6 +97,282 @@ static String comboTexto(int combo) {
     s += (combo & 1) ? "1" : "0";
     return s;
 }
+
+// ===================== Autocalibracion de giro con IMU =====================
+// Traida de src/tests/autoCalGiro.cpp (mismo algoritmo y mismas constantes),
+// para usarla desde un combo del DIP sin cambiar de build. El robot gira con
+// los mismos comandos de motor que 0010/tasks.cpp, mide con el eje Z del
+// giroscopio el angulo real (incluida la inercia despues de frenar) y corrige
+// el tiempo de forma proporcional hasta quedar en objetivo +- AC_TOLERANCIA,
+// alternando IZQ/DER con AC_ESPERA_MS de pausa. El freno lo da un esp_timer,
+// para que una traba del I2C no estire el giro; un intento con un hueco
+// entre lecturas > AC_GAP_MAX_MS se descarta y se repite.
+// Los tiempos encontrados NO se guardan solos en parametros[]: copiarlos por
+// BLE o a los #define TURN_*_DELAY de globals.h.
+#define AC_TOLERANCIA      2.0f
+#define AC_ESPERA_MS       1000
+#define AC_MAX_INTENTOS    15     // por lado
+#define AC_GAP_MAX_MS      10.0f
+#define AC_QUIETO_DPS      5.0f
+#define AC_QUIETO_MS       30
+#define AC_ASENTAR_MAX_MS  600
+#define AC_TIEMPO_MIN_MS   10
+#define AC_TIEMPO_MAX_MS   400
+
+#define MPU_ADDR_A       0x68
+#define MPU_ADDR_B       0x69
+#define REG_CONFIG       0x1A
+#define REG_GYRO_CFG     0x1B
+#define REG_GYRO_ZOUT    0x47
+#define REG_PWR_MGMT_1   0x6B
+#define REG_WHO_AM_I     0x75
+#define GYRO_LSB_POR_DPS 16.4f   // +-2000 dps
+
+static uint8_t mpuAddr = 0;
+static bool imuOk = false;
+static float biasGz = 0;
+
+// Estado de los combos 1001/1010: autocalPendiente se pone en true en cada flanco de
+// subida del killswitch (cuando se congela el combo), asi corre una sola vez
+// por activacion.
+static bool autocalPendiente = false;
+static String autocalResumen = "";
+static unsigned long autocalUltimoResumen = 0;
+
+static bool escribirReg(uint8_t reg, uint8_t valor) {
+    Wire.beginTransmission(mpuAddr);
+    Wire.write(reg);
+    Wire.write(valor);
+    return Wire.endTransmission() == 0;
+}
+
+static bool leerRegs(uint8_t reg, uint8_t *buf, uint8_t n) {
+    Wire.beginTransmission(mpuAddr);
+    Wire.write(reg);
+    if (Wire.endTransmission(false) != 0) return false;
+    if (Wire.requestFrom(mpuAddr, n) != n) return false;
+    for (uint8_t i = 0; i < n; i++) buf[i] = Wire.read();
+    return true;
+}
+
+static bool detectarIMU() {
+    uint8_t candidatos[2] = {MPU_ADDR_A, MPU_ADDR_B};
+    for (uint8_t i = 0; i < 2; i++) {
+        mpuAddr = candidatos[i];
+        uint8_t who;
+        if (leerRegs(REG_WHO_AM_I, &who, 1)) return true;
+    }
+    mpuAddr = 0;
+    return false;
+}
+
+static bool configurarIMU() {
+    bool ok = true;
+    ok &= escribirReg(REG_PWR_MGMT_1, 0x01);  // despertar, reloj = PLL giro X
+    delay(100);
+    ok &= escribirReg(REG_CONFIG, 0x01);      // DLPF ~184Hz: poca demora en giros cortos
+    ok &= escribirReg(REG_GYRO_CFG, 0x18);    // +-2000 dps
+    return ok;
+}
+
+static bool leerGz(int16_t *gz) {
+    uint8_t b[2];
+    if (!leerRegs(REG_GYRO_ZOUT, b, 2)) return false;
+    *gz = (int16_t)(b[0] << 8 | b[1]);
+    return true;
+}
+
+static bool calibrarBias() {
+    const int N = 300;
+    long suma = 0;
+    int validas = 0;
+    for (int i = 0; i < N; i++) {
+        int16_t gz;
+        if (leerGz(&gz)) { suma += gz; validas++; }
+        delay(2);
+    }
+    if (validas < N / 2) return false;
+    biasGz = (float)suma / validas;
+    return true;
+}
+
+static void autocalReportar(const String &msg) {
+    #ifdef DEBUG
+    Serial.println(msg);
+    #endif
+    #ifndef SKIP_BLE
+    sendData(msg + "\n");  // salto de linea: si no, la app del celular los pega
+    #endif
+}
+
+static esp_timer_handle_t timerFreno;
+static volatile bool frenado = false;
+
+static void frenarCallback(void *) {
+    rightMotor.brake();
+    leftMotor.brake();
+    frenado = true;
+}
+
+enum Lado { IZQ = 0, DER = 1 };
+
+static void arrancarGiro(Lado lado) {
+    if (lado == IZQ) {
+        rightMotor.forward(parametros[3]);
+        leftMotor.backward(parametros[3] + parametros[18]);
+    } else {
+        leftMotor.forward(parametros[6] + parametros[18]);
+        rightMotor.backward(parametros[6]);
+    }
+}
+
+struct Medicion {
+    float grados;    // con signo (el signo depende del montaje del IMU)
+    float gapMaxMs;  // mayor hueco entre lecturas validas
+    int   fallos;    // lecturas I2C fallidas durante el giro
+    bool  abortado;  // se solto el killswitch
+};
+
+static Medicion medirGiro(Lado lado, int tiempoMs) {
+    Medicion m = {0, 0, 0, false};
+    frenado = false;
+
+    unsigned long ultimo = micros();
+    arrancarGiro(lado);
+    esp_timer_start_once(timerFreno, (uint64_t)tiempoMs * 1000);
+
+    unsigned long tFreno = 0;
+    unsigned long quietoDesde = 0;
+    while (true) {
+        if (!startSignal) {
+            esp_timer_stop(timerFreno);
+            frenarCallback(nullptr);
+            m.abortado = true;
+            return m;
+        }
+
+        // Tope de espera despues de frenar, aunque el IMU deje de responder.
+        if (frenado) {
+            if (tFreno == 0) tFreno = millis();
+            if (millis() - tFreno >= AC_ASENTAR_MAX_MS) break;
+        }
+
+        int16_t gz;
+        if (!leerGz(&gz)) { m.fallos++; continue; }  // el hueco queda medido en dt
+        unsigned long ahora = micros();
+        float dt = (ahora - ultimo) / 1e6f;
+        ultimo = ahora;
+        if (dt * 1000.0f > m.gapMaxMs) m.gapMaxMs = dt * 1000.0f;
+
+        float dps = (gz - biasGz) / GYRO_LSB_POR_DPS;
+        m.grados += dps * dt;
+
+        if (frenado) {
+            unsigned long ms = millis();
+            if (fabsf(dps) < AC_QUIETO_DPS) {
+                if (quietoDesde == 0) quietoDesde = ms;
+                if (ms - quietoDesde >= AC_QUIETO_MS) break;
+            } else {
+                quietoDesde = 0;
+            }
+        }
+    }
+    return m;
+}
+
+static int corregirTiempo(int tiempo, float medido, float objetivo) {
+    float nuevo;
+    if (medido < 5.0f) {
+        nuevo = tiempo * 1.3f;  // casi no giro: subir lo maximo permitido
+    } else {
+        nuevo = tiempo * objetivo / medido;
+        nuevo = constrain(nuevo, tiempo * 0.7f, tiempo * 1.3f);
+    }
+    int n = (int)lroundf(nuevo);
+    if (n == tiempo) n += (medido > objetivo) ? -1 : 1;
+    return constrain(n, AC_TIEMPO_MIN_MS, AC_TIEMPO_MAX_MS);
+}
+
+static bool esperarConKillswitch(unsigned long ms) {
+    unsigned long t0 = millis();
+    while (millis() - t0 < ms) {
+        if (!startSignal) return false;
+        delay(10);
+    }
+    return true;
+}
+
+// Corre la autocalibracion completa (bloqueante) y devuelve el resumen
+// "FIN ..." (o un mensaje de error/aborto). objetivo en grados; idxIzq/idxDer
+// son los indices de parametros[] de donde sale el tiempo inicial de cada
+// lado ([4]/[7] para 45, [5]/[8] para 90).
+static String autocalGiro(float objetivo, int idxIzq, int idxDer) {
+    if (!imuOk) {
+        String e = "ERROR: IMU no responde -- revisar cableado. No se gira.";
+        autocalReportar(e);
+        return e;
+    }
+
+    autocalReportar("Autocal " + String(objetivo, 0) + ": quieto 1s y calibrando giroscopio, no tocar...");
+    if (!esperarConKillswitch(1000)) return "Abortado (killswitch).";
+    if (!calibrarBias()) {
+        String e = "ERROR: lecturas del IMU fallando al calibrar. No se gira.";
+        autocalReportar(e);
+        return e;
+    }
+
+    int tiempo[2]   = {parametros[idxIzq], parametros[idxDer]};
+    float ultimo[2] = {0, 0};   // ultimo angulo valido medido
+    int probado[2]  = {0, 0};   // tiempo con el que se midio ese angulo
+    int intentos[2] = {0, 0};
+    bool listo[2]   = {false, false};
+    const char *nombre[2] = {"IZQ", "DER"};
+
+    while (!(listo[IZQ] && listo[DER])) {
+        for (int l = IZQ; l <= DER; l++) {
+            if (listo[l]) continue;
+            if (intentos[l] >= AC_MAX_INTENTOS) { listo[l] = true; continue; }
+
+            intentos[l]++;
+            Medicion m = medirGiro((Lado)l, tiempo[l]);
+            if (m.abortado) { autocalReportar("Abortado (killswitch)."); return "Abortado (killswitch)."; }
+
+            float grados = fabsf(m.grados);
+            String linea = String(nombre[l]) + " #" + String(intentos[l]) + " "
+                         + String(tiempo[l]) + "ms -> " + String(m.grados, 1) + "g"
+                         + " gap " + String(m.gapMaxMs, 1) + "ms fallos " + String(m.fallos);
+
+            if (m.gapMaxMs > AC_GAP_MAX_MS) {
+                linea += " DESCARTADO, repite";
+            } else {
+                float error = grados - objetivo;
+                ultimo[l] = grados;
+                probado[l] = tiempo[l];
+                linea += " err " + String(error, 1);
+                if (fabsf(error) <= AC_TOLERANCIA) {
+                    listo[l] = true;
+                    linea += " OK";
+                } else {
+                    tiempo[l] = corregirTiempo(tiempo[l], grados, objetivo);
+                    linea += " -> " + String(tiempo[l]) + "ms";
+                }
+            }
+            autocalReportar(linea);
+
+            if (!esperarConKillswitch(AC_ESPERA_MS)) { autocalReportar("Abortado (killswitch)."); return "Abortado (killswitch)."; }
+        }
+    }
+
+    String resumen = "FIN " + String(objetivo, 0) + "g:";
+    for (int l = IZQ; l <= DER; l++) {
+        bool ok = fabsf(ultimo[l] - objetivo) <= AC_TOLERANCIA;
+        resumen += String(" ") + nombre[l] + "=" + String(probado[l]) + "ms("
+                 + String(ultimo[l], 1) + "g" + (ok ? ")" : " NO CONVERGIO)");
+    }
+    autocalReportar(resumen);
+    return resumen;
+}
+// ===========================================================================
 
 void setup() {
     #ifdef DEBUG
@@ -126,6 +413,19 @@ void setup() {
 
     rightMotor.begin();
     leftMotor.begin();
+
+    // IMU para la autocalibracion de 1001. No bloquea: si no responde, se
+    // reintenta cada 1s desde loop() con el killswitch apagado.
+    esp_timer_create_args_t args = {};
+    args.callback = frenarCallback;
+    args.name = "frenoGiro";
+    esp_timer_create(&args, &timerFreno);
+    Wire.begin(SDA_PIN, SCL_PIN, 100000);
+    Wire.setTimeOut(20);
+    imuOk = detectarIMU() && configurarIMU();
+    #ifdef DEBUG
+    Serial.println(imuOk ? "IMU detectado." : "IMU NO detectado, reintentando cada 1s...");
+    #endif
 
     // Nota: no corre el eFuse write de main.cpp (esp_efuse_write_field_cnt)
     // -- este modo no lo necesita.
@@ -222,6 +522,14 @@ void loop() {
         rightMotor.brake();
         leftMotor.brake();
         corriendo = false; // etapa 3 -> vuelve a etapa 1, se podra congelar de nuevo
+        static unsigned long ultimoIntentoIMU = 0;
+        if (!imuOk && millis() - ultimoIntentoIMU >= 1000) {
+            ultimoIntentoIMU = millis();
+            imuOk = detectarIMU() && configurarIMU();
+            #ifdef DEBUG
+            if (imuOk) Serial.println("IMU detectado.");
+            #endif
+        }
         delay(50);
         return;
     }
@@ -230,6 +538,8 @@ void loop() {
         // Borde etapa 1 -> etapa 2: se congela el combo una sola vez.
         comboCongelado = comboLive;
         corriendo = true;
+        autocalPendiente = true;  // 1001/1010: una autocalibracion por activacion
+        autocalResumen = "";
     }
 
     int combo = comboCongelado;
@@ -336,10 +646,72 @@ void loop() {
             leftMotor.brake();
             break;
 
-        case 6: // 0110: giro 180
-            rightMotor.forward(parametros[3]);
-            leftMotor.backward(parametros[3] + parametros[18]);
-            while (!elapsedTime(parametros[9])) { if (!startSignal) break; }
+        case 5: { // 0101: shorts de combate -- mismo orden, PWM y tiempo que
+                  // BRAKE -> SHORT_LEFT_MOVE/SHORT_RIGHT_MOVE en tasks.cpp
+                  // (ambos motores ADELANTE, 90/42 + parametros[18], 80ms).
+                  // Por seguridad hace el movimiento una sola vez y despues
+                  // ignora los sensores durante COOLDOWN_MS, sin importar el
+                  // lado (un unico cooldown para los dos). La primera vez no
+                  // espera: se usa un flag y no "ultimo = 0", porque con 0 el
+                  // primer movimiento quedaria bloqueado los primeros 10s
+                  // despues de encender el robot.
+            static bool hizoShort = false;
+            static unsigned long ultimoShort = 0;
+            const unsigned long COOLDOWN_MS = 10000;
+
+            if (hizoShort && millis() - ultimoShort < COOLDOWN_MS) {
+                rightMotor.brake();
+                leftMotor.brake();
+                break; // en cooldown: no lee los shorts
+            }
+
+            if (irSensor[SHORT_LEFT]) {
+                rightMotor.forward(FORWARD_90);
+                leftMotor.forward(FORWARD_42 + parametros[18]);
+                while (!elapsedTime(80)) { if (!startSignal) break; }
+                hizoShort = true;
+                ultimoShort = millis();
+                #ifndef SKIP_BLE
+                sendData("SHORT_LEFT_MOVE hecho, proximo en 10s");
+                #endif
+                #ifdef DEBUG
+                Serial.println("SHORT_LEFT_MOVE hecho, proximo en 10s");
+                #endif
+            }
+            else if (irSensor[SHORT_RIGHT]) {
+                rightMotor.forward(FORWARD_42);
+                leftMotor.forward(FORWARD_90 + parametros[18]);
+                while (!elapsedTime(80)) { if (!startSignal) break; }
+                hizoShort = true;
+                ultimoShort = millis();
+                #ifndef SKIP_BLE
+                sendData("SHORT_RIGHT_MOVE hecho, proximo en 10s");
+                #endif
+                #ifdef DEBUG
+                Serial.println("SHORT_RIGHT_MOVE hecho, proximo en 10s");
+                #endif
+            }
+            rightMotor.brake();
+            leftMotor.brake();
+            break;
+        }
+
+        case 6: // 0110: giro 180 -- bilateral, el sensor decide el lado
+                // (igual que 0011 pero con 180). SIDE_LEFT -> izquierda, mismo
+                // giro que TURN_180 de tasks.cpp ([3]/[9]); SIDE_RIGHT ->
+                // derecha ([6]/[19], tiempo propio porque los giros a la
+                // derecha no duran lo mismo -- tasks.cpp no tiene 180 der).
+                // Nada detectado -> frena (antes giraba sin parar).
+            if (irSensor[SIDE_LEFT]) {
+                rightMotor.forward(parametros[3]);
+                leftMotor.backward(parametros[3] + parametros[18]);
+                while (!elapsedTime(parametros[9])) { if (!startSignal) break; }
+            }
+            else if (irSensor[SIDE_RIGHT]) {
+                leftMotor.forward(parametros[6] + parametros[18]);
+                rightMotor.backward(parametros[6]);
+                while (!elapsedTime(parametros[19])) { if (!startSignal) break; }
+            }
             rightMotor.brake();
             leftMotor.brake();
             break;
@@ -373,73 +745,75 @@ void loop() {
             leftMotor.brake();
             break;
 
-        case 8: // 1000: seguir sin atacar 2 -- igual que el anterior, pero
-                // SHORT_LEFT/SHORT_RIGHT ahora si disparan, como un PIVOTE
-                // asimetrico (una rueda 90% adelante, la otra 42% atras --
-                // no es la mezcla de empuje+curva real de combate) con
-                // duracion ajustable en vivo por BLE via parametros[10]/[11]
-                // (SHORT_LEFT_DELAY/SHORT_RIGHT_DELAY, sin uso en tasks.cpp).
-            if (irSensor[SHORT_LEFT]) {
-                rightMotor.forward(90);
-                leftMotor.backward(42);
-                while (!elapsedTime(parametros[10])) { if (!startSignal) break; }
+        case 8: { // 1000: seguir sin atacar 2 -- igual que 0111 (TOP->45,
+                  // SIDE->90), pero SHORT_LEFT/SHORT_RIGHT hacen los shorts de
+                  // combate de 0101 (SHORT_LEFT_MOVE/SHORT_RIGHT_MOVE de
+                  // tasks.cpp: ambos motores adelante, 90/42 + parametros[18],
+                  // 80ms). Solo los shorts tienen restriccion: despues de uno,
+                  // los dos shorts quedan bloqueados COOLDOWN_MS (cooldown
+                  // unico). Mientras tanto un SHORT se ignora y se siguen
+                  // evaluando TOP/SIDE, que giran normalmente sin espera.
+                  // Primer short sin espera (flag, igual que en 0101).
+            static bool hizoShort = false;
+            static unsigned long ultimoShort = 0;
+            const unsigned long COOLDOWN_MS = 5000;
+            bool shortListo = !hizoShort || millis() - ultimoShort >= COOLDOWN_MS;
+
+            // Linea delantera (prioridad sobre todo, como LINE_RETREAT en
+            // tasks.cpp): reversa 90% x 80ms y giro 180 con los valores de
+            // 0110 (parametros[3]/[9]/[18]); despues frena y espera el
+            // siguiente sensor. lineSensor[0]/[1] es una sola lectura (arriba
+            // del loop), asi que se confirma con 4 lecturas mas seguidas
+            // (5 en total, a pedido del usuario; la prueba de frenado validada
+            // usaba 3) para no girar por un pico de ruido de los motores.
+            bool lineaIzq = lineSensor[0], lineaDer = lineSensor[1];
+            for (int i = 0; i < 4 && (lineaIzq || lineaDer); i++) {
+                delay(1);
+                lineaIzq = lineaIzq && checkLineSensora(readLineSensorFront(LINE_FRONT_LEFT));
+                lineaDer = lineaDer && checkLineSensorb(readLineSensorFront(LINE_FRONT_RIGHT));
             }
-            else if (irSensor[SHORT_RIGHT]) {
-                leftMotor.forward(90);
-                rightMotor.backward(42);
-                while (!elapsedTime(parametros[11])) { if (!startSignal) break; }
-            }
-            else if (irSensor[TOP_LEFT]) {
+
+            if (lineaIzq || lineaDer) {
+                rightMotor.backward(FORWARD_90);
+                leftMotor.backward(FORWARD_90);
+                while (!elapsedTime(80)) { if (!startSignal) break; }
                 rightMotor.forward(parametros[3]);
                 leftMotor.backward(parametros[3] + parametros[18]);
-                while (!elapsedTime(parametros[4])) { if (!startSignal) break; }
+                while (!elapsedTime(parametros[9])) { if (!startSignal) break; }
+                String aviso = String("LINEA ") + (lineaIzq && lineaDer ? "AMBOS" : (lineaIzq ? "IZQ" : "DER"))
+                             + " -> reversa 80ms + giro 180";
+                #ifndef SKIP_BLE
+                sendData(aviso);
+                #endif
+                #ifdef DEBUG
+                Serial.println(aviso);
+                #endif
             }
-            else if (irSensor[TOP_RIGHT]) {
-                leftMotor.forward(parametros[6] + parametros[18]);
-                rightMotor.backward(parametros[6]);
-                while (!elapsedTime(parametros[7])) { if (!startSignal) break; }
+            else if (shortListo && irSensor[SHORT_LEFT]) {
+                rightMotor.forward(FORWARD_90);
+                leftMotor.forward(FORWARD_42 + parametros[18]);
+                while (!elapsedTime(80)) { if (!startSignal) break; }
+                hizoShort = true;
+                ultimoShort = millis();
+                #ifndef SKIP_BLE
+                sendData("SHORT_LEFT_MOVE hecho, proximo short en 5s");
+                #endif
+                #ifdef DEBUG
+                Serial.println("SHORT_LEFT_MOVE hecho, proximo short en 5s");
+                #endif
             }
-            else if (irSensor[SIDE_LEFT]) {
-                rightMotor.forward(parametros[3]);
-                leftMotor.backward(parametros[3] + parametros[18]);
-                while (!elapsedTime(parametros[5])) { if (!startSignal) break; }
-            }
-            else if (irSensor[SIDE_RIGHT]) {
-                leftMotor.forward(parametros[6] + parametros[18]);
-                rightMotor.backward(parametros[6]);
-                while (!elapsedTime(parametros[8])) { if (!startSignal) break; }
-            }
-            rightMotor.brake();
-            leftMotor.brake();
-            break;
-
-        case 9: { // 1001: seguir sin atacar 3 -- SHORT_LEFT/SHORT_RIGHT
-                  // reproducen el movimiento REAL de combate (empuje+curva,
-                  // ambos adelante, 90/42+correccion, 80ms fijos como
-                  // SHORT_LEFT_MOVE/SHORT_RIGHT_MOVE de tasks.cpp) pero con
-                  // un cooldown de 10s por lado -- unico movimiento de este
-                  // archivo que empuja de verdad, asi que se limita por
-                  // seguridad cuanto puede repetirse. El resto de acciones
-                  // (los pivotes 45/90) no tienen esa restriccion.
-            static unsigned long ultimoShortLeft = 0;
-            static unsigned long ultimoShortRight = 0;
-            const unsigned long COOLDOWN_MS = 10000;
-
-            if (irSensor[SHORT_LEFT]) {
-                if (millis() - ultimoShortLeft >= COOLDOWN_MS) {
-                    rightMotor.forward(90);
-                    leftMotor.forward(42 + parametros[18]);
-                    while (!elapsedTime(80)) { if (!startSignal) break; }
-                    ultimoShortLeft = millis();
-                }
-            }
-            else if (irSensor[SHORT_RIGHT]) {
-                if (millis() - ultimoShortRight >= COOLDOWN_MS) {
-                    rightMotor.forward(42);
-                    leftMotor.forward(90 + parametros[18]);
-                    while (!elapsedTime(80)) { if (!startSignal) break; }
-                    ultimoShortRight = millis();
-                }
+            else if (shortListo && irSensor[SHORT_RIGHT]) {
+                rightMotor.forward(FORWARD_42);
+                leftMotor.forward(FORWARD_90 + parametros[18]);
+                while (!elapsedTime(80)) { if (!startSignal) break; }
+                hizoShort = true;
+                ultimoShort = millis();
+                #ifndef SKIP_BLE
+                sendData("SHORT_RIGHT_MOVE hecho, proximo short en 5s");
+                #endif
+                #ifdef DEBUG
+                Serial.println("SHORT_RIGHT_MOVE hecho, proximo short en 5s");
+                #endif
             }
             else if (irSensor[TOP_LEFT]) {
                 rightMotor.forward(parametros[3]);
@@ -466,8 +840,40 @@ void loop() {
             break;
         }
 
-        default: // 0101 (liberado al unificar 45/90 en bilateral) y
-                 // 1010-1111: libres, sin asignar todavia
+        case 9: // 1001: autocalibracion del giro de 45 con el IMU (traida
+                // de src/tests/autoCalGiro.cpp). Corre UNA vez por
+                // activacion del killswitch; despues repite el resumen cada
+                // 2s hasta soltarlo. Bloquea el loop mientras calibra (no hay
+                // reporte de sensores en ese tiempo).
+            if (autocalPendiente) {
+                autocalPendiente = false;
+                autocalResumen = autocalGiro(45.0f, 4, 7);
+                autocalUltimoResumen = millis();
+            } else if (autocalResumen.length() && millis() - autocalUltimoResumen >= 2000) {
+                autocalUltimoResumen = millis();
+                autocalReportar(autocalResumen);
+            }
+            rightMotor.brake();
+            leftMotor.brake();
+            break;
+
+        case 10: // 1010: autocalibracion del giro de 90 -- el que usan
+                 // SIDE_LEFT/SIDE_RIGHT (TURN_LEFT_90/TURN_RIGHT_90). Misma
+                 // logica que 1001, con objetivo 90 y tiempos iniciales de
+                 // parametros[5] (IZQ) / [8] (DER).
+            if (autocalPendiente) {
+                autocalPendiente = false;
+                autocalResumen = autocalGiro(90.0f, 5, 8);
+                autocalUltimoResumen = millis();
+            } else if (autocalResumen.length() && millis() - autocalUltimoResumen >= 2000) {
+                autocalUltimoResumen = millis();
+                autocalReportar(autocalResumen);
+            }
+            rightMotor.brake();
+            leftMotor.brake();
+            break;
+
+        default: // 1011-1111: libres, sin asignar todavia
             rightMotor.brake();
             leftMotor.brake();
             break;

@@ -44,3 +44,19 @@ Debatimos fuertemente sobre las vulnerabilidades del código actual frente a tra
 * Conclusión: el estado de la batería cambia mucho el ángulo para un mismo tiempo y, con batería baja, también el ruido en el I2C. Refuerza que en combate conviene cortar el giro por grados (IMU) en vez de por tiempo fijo.
 
 **3. Pendiente antes de pasar los tiempos a `globals.h`:** validar que el IMU mide el ángulo real (giro a mano de 90° con `pruebaIMU`), porque los 55/45ms calibrados a ojo con batería llena miden ~36°/~32°. Después, achicar la tolerancia (±2–3°) y seguir con 90°.
+
+---
+### [2026-10-04 | 22:16 | Noche] - Problema mecánico de las ruedas solucionado
+
+**1. Resultado:** con `src/tests/borrarAtrasAdelante.cpp` (`RUN_BORRAR_ATRAS_ADELANTE`: un motor a la vez, adelante y atrás 300ms a `parametros[2]`) el usuario resolvió un problema mecánico de la tracción y confirmó que **las dos ruedas funcionan correctamente en ambos sentidos**.
+
+**2. Sigue:** volver a la programación. Pendientes abiertos: autocalibración de giros a ±2° (`autoCalGiro.cpp`), validar el IMU con un giro de 90° a mano (`pruebaIMU`), probar `Girar45Linea.cpp` en el dohyo, calibrar el giro de ~180° y llevar el filtro de 3 lecturas de línea al combate.
+
+---
+### [2026-10-05 | 00:05 | Madrugada] - Giro 180° calibrado a ojo en los dos sentidos
+
+**1. Resultado:** con el nuevo `0110` de `calibracion.cpp` (180° bilateral: `SIDE_LEFT` gira a la izquierda, `SIDE_RIGHT` a la derecha), el usuario ajustó los tiempos por BLE hasta ver media vuelta: **180° izquierda `parametros[9]` = 120ms**, **180° derecha `parametros[19]` = 125ms** (los dos arrancaban en 150ms, que estaba marcado como "demostrativo"). Potencia de giro 94% (`[3]`/`[6]`), corrección `[18]` = 4.
+
+**2. Contexto:** es la primera calibración real del 180°, que en combate usa `LINE_RETREAT` → `TURN_180` y en calibración `1000` después de ver la línea. El 180° a la derecha (`[19]`) es nuevo y por ahora solo existe en calibración.
+
+**3. Pendiente:** pasar 120/125 a `TURN_LEFT_180_DELAY`/`TURN_RIGHT_180_DELAY` en `globals.h` (hoy siguen en 150, así que se pierden al reiniciar) y confirmar el ángulo con el IMU (por ejemplo, sumando un combo de autocalibración de 180°).

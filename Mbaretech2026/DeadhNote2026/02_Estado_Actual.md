@@ -69,7 +69,7 @@ Verificado línea por línea contra `include/globals.h`, `include/motor.h` y `sr
 
 ## 🔧 Tabla de Parámetros BLE (`parametros[]`)
 
-Array de 19 enteros (`ARRAY_PARAMETROS_SIZE = 19`) definido y con sus valores por defecto en `src/globals.cpp`, escribible en caliente por Bluetooth mandando `"INDICE VALOR"` (`include/bluetoothComm.h` hace `parametros[INDICE] = VALOR;`). Cada índice nació pensado para un uso específico (comentarios originales del array), pero **no todos están conectados hoy en `tasks.cpp`** — verificado línea por línea contra el código actual:
+Array de 20 enteros (`ARRAY_PARAMETROS_SIZE = 20`, era 19 hasta el 2026-10-04) definido y con sus valores por defecto en `src/globals.cpp`, escribible en caliente por Bluetooth mandando `"INDICE VALOR"` (`include/bluetoothComm.h` hace `parametros[INDICE] = VALOR;`). Cada índice nació pensado para un uso específico (comentarios originales del array), pero **no todos están conectados hoy en `tasks.cpp`** — verificado línea por línea contra el código actual:
 
 | Índice | Constante de origen | Valor por defecto | Para qué es | ¿Se usa en `tasks.cpp` (build activo) hoy? |
 |---|---|---|---|---|
@@ -77,12 +77,12 @@ Array de 19 enteros (`ARRAY_PARAMETROS_SIZE = 19`) definido y con sus valores po
 | 1 | — | 0 | En `movements.cpp`, elige QUÉ estado disparar cuando `parametros[0]==1` (3=`TURN_LEFT_45`, 4=`TURN_LEFT_90`, etc.) | No |
 | 2 | `FORWARD_X` | 94 | Velocidad de avance (pensada para `forward`/`backward`/`line retreat`) | **Sí** — usado por el nuevo `TEST_FORWARD` (ver más abajo) |
 | 3 | `TURN_LEFT_SPEED` | 94 | Velocidad de giro izquierdo | **Sí** — `TURN_LEFT_45`, `TURN_LEFT_90`, `TURN_180`, tramo de `L_MOVEMENT_45` |
-| 4 | `TURN_LEFT_45_DELAY` | 60 | Duración del giro de 45° izquierdo | **Sí** |
-| 5 | `TURN_LEFT_90_DELAY` | 75 | Duración del giro de 90° izquierdo | **Sí** |
+| 4 | `TURN_LEFT_45_DELAY` | 55 | Duración del giro de 45° izquierdo | **Sí** |
+| 5 | `TURN_LEFT_90_DELAY` | 80 | Duración del giro de 90° izquierdo | **Sí** |
 | 6 | `TURN_RIGHT_SPEED` | 94 | Velocidad de giro derecho | **Sí** — `TURN_RIGHT_45`, `TURN_RIGHT_90`, tramo de `R_MOVEMENT_45`, corrección dentro de `L_MOVEMENT_45` |
-| 7 | `TURN_RIGHT_45_DELAY` | 60 | Duración del giro de 45° derecho | **Sí** |
-| 8 | `TURN_RIGHT_90_DELAY` | 75 | Duración del giro de 90° derecho | **Sí** |
-| 9 | `TURN_LEFT_180_DELAY` | 150 | Duración del giro de 180° | **Sí** — `TURN_180` |
+| 7 | `TURN_RIGHT_45_DELAY` | 45 | Duración del giro de 45° derecho | **Sí** |
+| 8 | `TURN_RIGHT_90_DELAY` | 70 | Duración del giro de 90° derecho | **Sí** |
+| 9 | `TURN_LEFT_180_DELAY` | 150 (**calibrado a ojo 2026-10-05: 120**, todavía no pasado a `globals.h`) | Duración del giro de 180° a la izquierda | **Sí** — `TURN_180` |
 | 10 | `SHORT_LEFT_DELAY` | 15 | Duración de la corrección corta hacia la izquierda | No — `tasks.cpp` sigue usando el `#define` fijo (en `FORWARD`, ramas de snake y corrección) |
 | 11 | `SHORT_RIGHT_DELAY` | 15 | Duración de la corrección corta hacia la derecha | No — ídem, `#define` fijo |
 | 12 | `THRESHOLD` | 145 | Umbral del sensor de línea (blanco vs. dohyo) | No — `lineSensor.cpp` usa el `#define` fijo directamente |
@@ -92,8 +92,9 @@ Array de 19 enteros (`ARRAY_PARAMETROS_SIZE = 19`) definido y con sus valores po
 | 16 | `GIRO_U_DELAY` | 500 | Pensado como duración de un arco en U | No — `GIRO_U_L`/`GIRO_U_R` usan un `1000` hardcodeado, no esta constante ni este índice |
 | 17 | `GIRO_U_L_DELAY` | 1000 | Pensado como duración de un arco en U largo | No — `GIRO_U_L_LONG`/`GIRO_U_R_LONG` usan un `2000` hardcodeado, no esta constante ni este índice |
 | 18 | `CORRECT_SPEED` | 4 | Sesgo de compensación en la rueda "interna" de cada giro | **Sí** — en todos los giros y movimientos compuestos que usan corrección |
+| 19 | `TURN_RIGHT_180_DELAY` | 150 (**calibrado a ojo 2026-10-05: 125**, todavía no pasado a `globals.h`) | Duración del giro de 180° a la derecha (nuevo 2026-10-04) | No — combate solo tiene 180° izquierdo; lo usa `calibracion.cpp` `0110` |
 
-**Resumen:** de los 19, hoy **9 están realmente conectados a `tasks.cpp`** (`[2]` a `[9]` y `[18]`, todos ligados a giros + el nuevo modo de prueba). El resto (`[0]`,`[1]`,`[10]`-`[17]`) solo tiene efecto en `movements.cpp` (el estado-máquina viejo), o directamente no tiene efecto en ningún lado (`[15]`,`[16]`,`[17]`, por las constantes muertas ya documentadas).
+**Resumen:** de los 20 (`[19]` agregado 2026-10-04, solo para calibración), hoy **9 están realmente conectados a `tasks.cpp`** (`[2]` a `[9]` y `[18]`, todos ligados a giros + el nuevo modo de prueba). El resto (`[0]`,`[1]`,`[10]`-`[17]`) solo tiene efecto en `movements.cpp` (el estado-máquina viejo), o directamente no tiene efecto en ningún lado (`[15]`,`[16]`,`[17]`, por las constantes muertas ya documentadas).
 
 **Confirmación por BLE agregada (2026-09-22):** durante las pruebas de campo, el usuario no tenía forma de saber si un comando BLE realmente llegaba/se parseaba (`onWrite()` no devolvía nada). Se corrigieron dos cosas en `include/bluetoothComm.h`:
 * La característica RX solo aceptaba `PROPERTY_WRITE` (con respuesta) — muchas apps terminal UART (ej. "BLE Serial nRF") mandan por defecto **"Write Without Response"**, que el servidor rechazaba en silencio. Ahora acepta ambas (`PROPERTY_WRITE | PROPERTY_WRITE_NR`).
@@ -141,18 +142,19 @@ Nuevo archivo `src/calibracion.cpp`, **separado del código de competencia** (a 
 | Combo | Acción | `parametros[]` |
 |---|---|---|
 | `0000` | Solo reporte de sensores, sin mover motores (default/seguro) | — |
-| `0001` | Avance recto | `[2]` |
-| `0010` | Giro 45°, **bilateral** — el sensor decide el lado: `TOP_LEFT` → izquierda (`[3]`/`[4]`), `TOP_RIGHT` → derecha (`[6]`/`[7]`), nada detectado → frena | `[3]`, `[4]`, `[6]`, `[7]`, `[18]` |
+| `0001` | Avance recto (solo DIP, sin sensor) | `[2]` |
+| `0010` | Giro 45°, **bilateral** — `TOP_LEFT` → izquierda (`[3]`/`[4]`), `TOP_RIGHT` → derecha (`[6]`/`[7]`), nada detectado → frena | `[3]`, `[4]`, `[6]`, `[7]`, `[18]` |
 | `0011` | Giro 90°, **bilateral** — `SIDE_LEFT` → izquierda (`[3]`/`[5]`), `SIDE_RIGHT` → derecha (`[6]`/`[8]`), nada detectado → frena | `[3]`, `[5]`, `[6]`, `[8]`, `[18]` |
-| `0100` | Junta `0010`+`0011` en un solo combo: los 4 sensores de giro a la vez — `TOP_LEFT`/`TOP_RIGHT` → 45°, `SIDE_LEFT`/`SIDE_RIGHT` → 90°, nada detectado → frena. Mismos `parametros[]` que los combos individuales, sin agregar nada nuevo. Por ahora es idéntico en comportamiento a `0111` (más abajo), ya que `0111` todavía no le suma nada extra | `[3]`, `[4]`, `[5]`, `[6]`, `[7]`, `[8]`, `[18]` |
-| `0101` | Libre — quedó liberado al unificar 45°/90° en los combos bilaterales de arriba | — |
-| `0110` | Giro 180° (sigue sin sensor propio — no hay un sensor único de "atrás" en este robot) | `[3]`, `[9]`, `[18]` |
-| `0111` | Seguir sin atacar 1: `TOP_LEFT`/`TOP_RIGHT` → 45°, `SIDE_LEFT`/`SIDE_RIGHT` → 90°. `SHORT_LEFT`/`SHORT_RIGHT` se **omiten por completo** (frenan, igual que "nada detectado") | `[3]`, `[4]`, `[5]`, `[6]`, `[7]`, `[8]`, `[18]` |
-| `1000` | Seguir sin atacar 2: igual al anterior, pero `SHORT_LEFT`/`SHORT_RIGHT` disparan un **pivote asimétrico** (una rueda 90% adelante, la otra 42% atrás, sin `[18]`) — sigue sin avance neto. Duración ajustable en vivo por `parametros[10]`/`[11]` en vez de los 80ms fijos de combate | `[3]`-`[8]`, `[10]`, `[11]`, `[18]` |
-| `1001` | Seguir sin atacar 3: igual, pero `SHORT_LEFT`/`SHORT_RIGHT` reproducen el movimiento **real** de combate (`SHORT_LEFT_MOVE`/`SHORT_RIGHT_MOVE`: ambas ruedas adelante, 90%/42%+`[18]`, 80ms) — el único combo que empuja de verdad. Limitado a una vez cada **10 segundos por lado** (`millis()`, independiente del `elapsedTime()` compartido) por seguridad; los pivotes puros no tienen ese límite | `[3]`-`[9]`, `[18]` |
-| `1010`-`1111` | Sin asignar, no hace nada (frena) | — |
+| `0100` | Junta `0010`+`0011`: TOP → 45°, SIDE → 90°, nada → frena. **Idéntico a `0111`** (candidato a liberar) | `[3]`–`[8]`, `[18]` |
+| `0101` | **Shorts de combate (2026-10-04):** `SHORT_LEFT` (prioridad) / `SHORT_RIGHT` → `SHORT_LEFT_MOVE`/`SHORT_RIGHT_MOVE` exactos de `tasks.cpp` (ambas ruedas adelante 90/42+`[18]`, 80ms). Una vez y después **10s de cooldown único** para los dos lados. Sin probar en hardware | `[18]` |
+| `0110` | **Giro 180° bilateral (2026-10-04):** `SIDE_LEFT` → 180° izquierda (`[3]`/`[9]`, igual que `TURN_180`), `SIDE_RIGHT` → 180° derecha (`[6]`/`[19]`), nada → frena. Antes giraba sin parar (solo DIP). **Calibrado a ojo 2026-10-05: `[9]`=120ms, `[19]`=125ms** | `[3]`, `[6]`, `[9]`, `[18]`, `[19]` |
+| `0111` | Seguir sin atacar 1: TOP → 45°, SIDE → 90°; SHORT y `TOP_MID` no hacen nada (frena) | `[3]`–`[8]`, `[18]` |
+| `1000` | **Seguir sin atacar 2 (2026-10-04):** prioridad 1) línea delantera confirmada con 5 lecturas → reversa `FORWARD_90` 80ms + 180° izquierda (`[3]`/`[9]`); 2) SHORT → shorts de combate de `0101` con **5s de cooldown solo para los shorts**; 3) TOP → 45°; 4) SIDE → 90°. Sin probar en hardware | `[3]`–`[9]`, `[18]` |
+| `1001` | **Autocalibración 45° con IMU (2026-10-04, traída de `autoCalGiro.cpp`):** alterna IZQ/DER, mide con el giroscopio y corrige `[4]`/`[7]` hasta 45 ± 2°. Una vez por activación, después repite `FIN 45g ...` cada 2s. No guarda los tiempos solos. Sin probar en hardware | `[3]`, `[4]`, `[6]`, `[7]`, `[18]` |
+| `1010` | **Autocalibración 90° con IMU (2026-10-04):** igual que `1001`, con `[5]`/`[8]` y objetivo 90 ± 2° (`FIN 90g ...`). Sin probar en hardware | `[3]`, `[5]`, `[6]`, `[8]`, `[18]` |
+| `1011`-`1111` | Sin asignar, no hace nada (frena) | — |
 
-**Dos modelos de disparo distintos, coexistiendo a propósito:** `0001` y `0110` son "solo DIP" — corren sin condición apenas se selecciona ese combo (se repiten cada ~300ms), sin mirar ningún sensor IR; esto es intencional, para poder ejercitar un movimiento puntual y tunearlo sin necesidad de poner un objeto delante del sensor. `0010`, `0011`, `0111`, `1000`, `1001` son "por sensor" — el DIP elige un *modo*, y ese modo solo mueve motores cuando el sensor correspondiente detecta algo, igual que hace `BRAKE` en combate.
+**Dos modelos de disparo distintos, coexistiendo a propósito:** `0001` es "solo DIP" (`0110` también lo era hasta el 2026-10-04, ahora es por sensor) — corren sin condición apenas se selecciona ese combo (se repiten cada ~300ms), sin mirar ningún sensor IR; esto es intencional, para poder ejercitar un movimiento puntual y tunearlo sin necesidad de poner un objeto delante del sensor. `0010`, `0011`, `0111`, `1000`, `1001` son "por sensor" — el DIP elige un *modo*, y ese modo solo mueve motores cuando el sensor correspondiente detecta algo, igual que hace `BRAKE` en combate.
 
 **Unificación bilateral de 45°/90° (2026-09-23, undécima vuelta):** el usuario notó un error de concepto en su cabeza (no en el código): pensaba que `0010`-`0110` ya respondían a sensores como en combate, cuando en realidad eran puramente DIP-only. Tras aclarar la diferencia, pidió que los giros de 45°/90° sí respondan a sensores, pero de forma bilateral: un solo combo por ángulo, que gire hacia el lado que corresponda según cuál sensor detecte. Se modificó `calibracion.cpp`:
 - **`0010` (antes "giro 45 izquierda" fijo):** ahora mira `TOP_LEFT`/`TOP_RIGHT` y gira hacia el lado que corresponda (mismos `parametros[3]`/`[4]` para izquierda, `[6]`/`[7]` para derecha); si no detecta nada, frena.
